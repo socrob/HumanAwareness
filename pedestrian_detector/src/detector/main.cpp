@@ -20,6 +20,13 @@
 #include <sensor_msgs/image_encodings.h>
 #include <ros/package.h>
 
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
+//#include <tf/tf.h>
+#include <sensor_msgs/JointState.h>
+
 //OpenCV Includes
 #include <opencv2/opencv.hpp>
 #include <opencv/cv.h>
@@ -63,9 +70,17 @@ private:
     ros::NodeHandle nh;
     ros::NodeHandle nPriv;
     image_transport::ImageTransport *it;
-    image_transport::Subscriber image_sub;
     image_transport::Publisher image_pub;
     std::string detectorType;
+
+
+    double masking_threshold;
+    ros::Time camera_last_stamp_;
+    typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::JointState> MySyncPolicy;
+    boost::shared_ptr<message_filters::Subscriber<sensor_msgs::Image> > image_sub;
+    boost::shared_ptr<message_filters::Subscriber<sensor_msgs::JointState> > joint_state_sub;
+    boost::shared_ptr<message_filters::Synchronizer<MySyncPolicy> >sync;
+
 
     //Our detectors
     pedestrianDetector *person_detector;
@@ -74,14 +89,19 @@ private:
     ros::Publisher detectionPublisher;
 
     //Callback to process the images
-    void imageCb(const sensor_msgs::ImageConstPtr& msg)
+    void imageCb(const sensor_msgs::ImageConstPtr& image_msg, const sensor_msgs::JointStateConstPtr & joint_state_msg)
     {
+        // Check joint velocities and return case velocities above threshold
+
+
+        // end check
+
         tic();
 
         cv_bridge::CvImagePtr cv_ptr;
         try
         {
-            cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+            cv_ptr = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8);
         }
         catch(cv_bridge::Exception& e)
         {
@@ -100,7 +120,7 @@ private:
 
         pedestrian_detector::DetectionList detectionList;
 
-        detectionList.header = msg->header;
+        detectionList.header = image_msg->header;
 
 
         //Print rectangles on the image and add them to the detection list
@@ -186,7 +206,7 @@ private:
 
 
         //Publish the detections (I will also publish the features associated to each detection)
-        detectionList.im = *msg;
+        detectionList.im = *image_msg;
         detectionPublisher.publish(detectionList);
 
     }
@@ -198,6 +218,7 @@ public:
 
 
         nPriv.param<std::string>("detector_type", detectorType, "full");
+        nPriv.param("masking_threshold", masking_threshold, 0.2);
 
         stringstream ss;
         ss << ros::package::getPath("pedestrian_detector");
@@ -210,9 +231,21 @@ public:
 
         //Subscribe to vizzy's left camera
         //Change this later
-        image_sub = it->subscribe("/vizzy/l_camera/image_rect_color", 1, &PedDetector::imageCb, this);
+        //image_sub = it->subscribe("/vizzy/l_camera/image_rect_color", 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("image_in", 1, &PedDetector::imageCb, this);
+
+        image_sub=boost::shared_ptr<message_filters::Subscriber<sensor_msgs::Image> > (new message_filters::Subscriber<sensor_msgs::Image>(nh, "/vizzy/l_camera/image_rect_color", 10));
+        joint_state_sub=boost::shared_ptr<message_filters::Subscriber<sensor_msgs::JointState> > (new message_filters::Subscriber<sensor_msgs::JointState>(nh, "/vizzy/joint_states", 10));
+
+        sync=boost::shared_ptr<message_filters::Synchronizer<MySyncPolicy> > (new message_filters::Synchronizer<MySyncPolicy>(MySyncPolicy(10),
+                                                                                                                              *image_sub,
+                                                                                                                              *joint_state_sub
+                                                                                                                              ));
+
+        sync->registerCallback(boost::bind(&PedDetector::imageCb, this, _1, _2));
+
+
     }
 
     ~PedDetector()
