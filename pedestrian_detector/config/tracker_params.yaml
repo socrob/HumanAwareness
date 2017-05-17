@@ -3,11 +3,11 @@ median_window: 3
 number_of_frames_before_destruction: 60
 number_of_frames_before_destruction_locked: 60
 
-camera: l_camera_vision_link
+camera: head_camera_rgb_optical_frame
 maximum_person_height: 2.1
 minimum_person_height: 0.8
-filtering_frame_id: base_footprint
-fixed_frame_id: base_footprint
+filtering_frame_id: base_link
+fixed_frame_id: base_link
 odom_frame_id: odom
 
 creation_threshold: 0.5
