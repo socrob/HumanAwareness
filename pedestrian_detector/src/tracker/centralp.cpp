@@ -1,8 +1,6 @@
 #include <ros/ros.h>
 #include "geometry_msgs/PointStamped.h"
 #include "geometry_msgs/PoseArray.h"
-#include "people_tracking/Crowdoperator.h"
-#include "people_tracking/Starttracking.h"
 #include "sensor_msgs/PointCloud2.h"
 
 #include <pcl_conversions/pcl_conversions.h>
@@ -23,7 +21,6 @@ geometry_msgs::PoseArray mapeople;
 geometry_msgs::Point mcenter;
 sensor_msgs::PointCloud2 pcloud;
 tf::TransformListener* listener;
-bool startracking = false;
 
 void timerCallback(const ros::TimerEvent& event){
   try{
@@ -62,10 +59,7 @@ pcl::PointXYZ findpclpoint(pcl::PointCloud<pcl::PointXYZ> cloud, geometry_msgs::
 }
 
 void pclCallback(const sensor_msgs::PointCloud2ConstPtr& pcloudmsg){
-  //std::cout << "pclCallback" << std::endl;
-  
   pcloud = *pcloudmsg;
-
 }
 
 bool inradius(pcl::PointXYZ point){
@@ -79,14 +73,11 @@ bool inradius(pcl::PointXYZ point){
   pointin.header.frame_id = "/head_camera_rgb_optical_frame";
   
   try{
-    //listener.waitForTransform("/asus_object_rgb_optical_frame", "/map",ros::Time(0), ros::Duration(3.0));
     listener->transformPoint("/base_link",ros::Time(0),pointin,"/head_camera_rgb_optical_frame",pointout); 
   }
   catch (tf::TransformException &ex) {
     ROS_ERROR("%s",ex.what());
   }
-  
-  //float at = atan2(pointout.point.y,pointout.point.x);
   
   float d = sqrt(pow(pointout.point.x,2) + pow(pointout.point.y,2));
 
@@ -134,7 +125,6 @@ void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
     }
     int rgbdsize = rgbdpoints.size(); 
     for(int i = 0; i < rgbdsize ; i++){
-      //rgbdpoint = cloud.at(crowdpoints[i].x,crowdpoints[i].y);
     
       asuspoint.point.x = rgbdpoints[i].x;
       asuspoint.point.y = rgbdpoints[i].y;
@@ -160,54 +150,6 @@ void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
   }
 }
 
-// bool crowdserviceCallback(people_tracking::Crowdoperator::Request  &req, people_tracking::Crowdoperator::Response &res){
-//   bool cbool = req.crowd;
-//   bool obool = req.op;
-//   std::vector<int> crowdsv, crowdm(11);
-//   int crowdsize;
-//   boxesize.clear();
-//   while(boxesize.size() < 10){
-//     std::cout << "boxesize.size: " << boxesize.size() << std::endl;
-//     std::cout << "people size: " << boxesize[boxesize.size()-1].size() << std::endl;
-//     ros::spinOnce();
-    
-//   }
-  
-//   //std::cout << "Found people" << std::endl;
-//   if(boxesize.size() == 10){
-//     for(int i = 0; i < boxesize.size(); i++){
-//       crowdsv.push_back(boxesize[i].size());
-//       crowdm[boxesize[i].size()]++;
-//     }
-//     std::vector<int>::iterator result = std::max_element(crowdm.begin(),crowdm.end());
-//     crowdsize = std::distance(crowdm.begin(), result);
-//   }
-
-//   if(cbool & obool){
-//     //operator message filling
-//     //crowd message filling
-//   }else if(obool){
-//     //operator message filling
-//   }else if(cbool){
-//     //crowd message filling
-//     res.crowd_res.people = mapeople;
-//     res.crowd_res.size = crowdsize;
-//     res.crowd_res.central = mcenter;
-
-//   }else{
-
-//   }
-// return true;
-// }
-
-bool trackingserviceCallback(people_tracking::Starttracking::Request  &req, people_tracking::Starttracking::Response &res){
-
-  startracking = req.start;
-
-  return true;
-}
-
-
 int main(int argc, char **argv){
 
   ros::init(argc, argv, "centralp");
@@ -215,19 +157,15 @@ int main(int argc, char **argv){
   listener = new (tf::TransformListener);
   ros::Subscriber bb_sub = n.subscribe("/detections", 1, bbCallback); 
   ros::Subscriber pcl_sub = n.subscribe("/head_camera/depth_registered/points", 1, pclCallback); 
-  //ros::ServiceServer crowdservice = n.advertiseService("CrowdOperator", crowdserviceCallback);
-  ros::ServiceServer trackingservice = n.advertiseService("StartTracking", trackingserviceCallback);
   ros::Publisher mapeople_pub = n.advertise<geometry_msgs::PoseArray>("mapeople", 1);
   
   ros::Timer timer = n.createTimer(ros::Duration(0.1), timerCallback);
 
   ros::Rate loop_rate(20);
   while (ros::ok()){
-    if(startracking){
-      mapeople.header.stamp = ros::Time::now();
-      mapeople.header.frame_id = "/base_link";
-      mapeople_pub.publish(mapeople); 
-    }
+    mapeople.header.stamp = ros::Time::now();
+    mapeople.header.frame_id = "/base_link";
+    mapeople_pub.publish(mapeople); 
     ros::spinOnce();
     loop_rate.sleep();
   }
