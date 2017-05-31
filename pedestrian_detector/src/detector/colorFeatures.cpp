@@ -1,6 +1,6 @@
 #include "../include/detector/colorFeatures.hpp"
-#include <opencv/highgui.h>
-#include <opencv/cv.h>
+#include <opencv2/highgui.hpp>
+#include <opencv2/opencv.hpp>
 
 using namespace std;
 
@@ -16,7 +16,7 @@ void extractBVT(cv::Mat& inputImage, cv::Mat& bvtHistogram, int bgBins, std::vec
     int sBins = 10;
 
     //Convert the image to the HSV color space
-    cvtColor(inputImage, hsv, CV_BGR2HSV);
+    cv::cvtColor(inputImage, hsv, CV_BGR2HSV);
 
 /* ---------- Copy/paste from OpenCV website: THIS NEEDS ATTENTION ----------- */
 
