@@ -184,8 +184,14 @@ private:
             for(it = person_detector->headBoundingBoxes->begin(); it != person_detector->headBoundingBoxes->end(); it++)
             {
                 rectangle(imageDisplay, it->bbox, Scalar_<int>(0,0,255), 3);
-            }
-        }
+		pedestrian_detector::BoundingBox bb;
+		bb.x = it->bbox.x;
+		bb.y = it->bbox.y;
+		bb.width = it->bbox.width;
+		bb.height = it->bbox.height;
+		detectionList.headsVector.push_back(bb);
+	    }
+	}
 
         //Publish the resulting image for now. Later I might publish only the detections for another node to process
         sensor_msgs::ImagePtr out_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", imageDisplay).toImageMsg();
@@ -221,7 +227,7 @@ public:
 
         //Subscribe to vizzy's left camera
         //Change this later
-        image_sub = it->subscribe("/head_camera/rgb/image_rect_color", 1, &PedDetector::imageCb, this);
+        image_sub = it->subscribe("/camera/rgb/image_rect_color", 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("image_in", 1, &PedDetector::imageCb, this);
     }

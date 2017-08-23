@@ -17,6 +17,11 @@ add_action_files(
   FILES Gaze.action
 )
 
+add_service_files(
+  FILES
+  PersonInSight.srv
+)
+
 generate_messages(
   DEPENDENCIES
   std_msgs
@@ -24,7 +29,6 @@ generate_messages(
   geometry_msgs
   actionlib_msgs
 )
-
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES vizzy_msgs

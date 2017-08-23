@@ -1,5 +1,4 @@
 <?xml version="1.0"?>
-<!--Only use the left camera-->
 <launch>
 <!--  <arg name="image_in" default="/vizzy/l_camera/image_rect_color" /> -->
 
@@ -18,7 +17,7 @@
     <rosparam file="$(find pedestrian_detector)/config/detector_params.yaml" command="load"/>
   </node>
   <!--node pkg="pedestrian_detector" type="tracker" name="tracker" output="screen">
-	<rosparam file="$(find pedestrian_detector)/config/tracker_params.yaml" command="load"/>
+  <rosparam file="$(find pedestrian_detector)/config/tracker_params.yaml" command="load"/>
   </node-->
   <node pkg="pedestrian_detector" type="centralp" name="before_tracker">
   </node>
@@ -26,8 +25,8 @@
   </node>
   <group if="$(arg follower)">
   <node pkg="pedestrian_detector" type="follower" name="follower" output="screen">
-	<!--remap from="twist_topic" to="/cmd_vel_prio_medium"/>
-	  <rosparam file="$(find pedestrian_detector)/config/follower_params_$(arg following_planner_mode).yaml" command="load"/-->
+  <!--remap from="twist_topic" to="/cmd_vel_prio_medium"/>
+    <rosparam file="$(find pedestrian_detector)/config/follower_params_$(arg following_planner_mode).yaml" command="load"/-->
   </node>
   </group>
 </launch>

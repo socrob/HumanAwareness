@@ -2,6 +2,7 @@
 #include "geometry_msgs/PointStamped.h"
 #include "geometry_msgs/PoseArray.h"
 #include "sensor_msgs/PointCloud2.h"
+#include "vizzy_msgs/PersonInSight.h"
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
@@ -21,6 +22,7 @@ geometry_msgs::PoseArray mapeople;
 geometry_msgs::Point mcenter;
 sensor_msgs::PointCloud2 pcloud;
 tf::TransformListener* listener;
+double kid_height = 0.4;
 
 void timerCallback(const ros::TimerEvent& event){
   try{
@@ -59,7 +61,10 @@ pcl::PointXYZ findpclpoint(pcl::PointCloud<pcl::PointXYZ> cloud, geometry_msgs::
 }
 
 void pclCallback(const sensor_msgs::PointCloud2ConstPtr& pcloudmsg){
+  //std::cout << "pclCallback" << std::endl;
+  
   pcloud = *pcloudmsg;
+
 }
 
 bool inradius(pcl::PointXYZ point){
@@ -73,15 +78,18 @@ bool inradius(pcl::PointXYZ point){
   pointin.header.frame_id = "/head_camera_rgb_optical_frame";
   
   try{
+    //listener.waitForTransform("/asus_object_rgb_optical_frame", "/map",ros::Time(0), ros::Duration(3.0));
     listener->transformPoint("/base_link",ros::Time(0),pointin,"/head_camera_rgb_optical_frame",pointout); 
   }
   catch (tf::TransformException &ex) {
     ROS_ERROR("%s",ex.what());
   }
   
+  //float at = atan2(pointout.point.y,pointout.point.x);
+  
   float d = sqrt(pow(pointout.point.x,2) + pow(pointout.point.y,2));
 
-  if(d < 5){
+  if(d < 2.5){
     in = true;
   }else{
     in = false;
@@ -91,7 +99,7 @@ bool inradius(pcl::PointXYZ point){
 }
 
 void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
-  std::cout << "bbCallback" << std::endl;
+  //std::cout << "bbCallback" << std::endl;
   mapeople.poses.clear();
   geometry_msgs::Point crowdpoint;
   pcl::PCLPointCloud2 pcl_pc2;
@@ -110,8 +118,8 @@ void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
     geometry_msgs::Pose maperson;
     int psize = bpeople->bbVector.size();
     for(int i = 0; i < psize; i++){
-      float center_x = bpeople->bbVector[i].x + bpeople->bbVector[i].width/2;
-      float center_y = bpeople->bbVector[i].y + bpeople->bbVector[i].height/2;
+      float center_x = bpeople->headsVector[i].x + bpeople->headsVector[i].width/2;
+      float center_y = bpeople->headsVector[i].y + bpeople->headsVector[i].height/2;
     
       crowdpoint.x = center_x;
       crowdpoint.y = center_y;
@@ -125,15 +133,16 @@ void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
     }
     int rgbdsize = rgbdpoints.size(); 
     for(int i = 0; i < rgbdsize ; i++){
+      //rgbdpoint = cloud.at(crowdpoints[i].x,crowdpoints[i].y);
     
       asuspoint.point.x = rgbdpoints[i].x;
       asuspoint.point.y = rgbdpoints[i].y;
       asuspoint.point.z = rgbdpoints[i].z;
       asuspoint.header.stamp = ros::Time::now();
-      asuspoint.header.frame_id = "/head_camera_rgb_optical_frame";
+      asuspoint.header.frame_id = "/camera_rgb_optical_frame";
     
       try{
-	listener->transformPoint("/base_link",ros::Time(0),asuspoint,"/head_camera_rgb_optical_frame",mapoint); 
+	listener->transformPoint("/base_link",ros::Time(0),asuspoint,"/camera_rgb_optical_frame",mapoint); 
       }catch (tf::TransformException &ex) {
 	ROS_ERROR("%s",ex.what());
       }
@@ -142,12 +151,23 @@ void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
       maperson.orientation.x = 0;
       maperson.orientation.y = 0;
       maperson.orientation.z = 0;
-       maperson.orientation.w = 1;
-      std::cout << "person x: " << maperson.position.x << " y: " << maperson.position.y << std::endl;
+      maperson.orientation.w = 1;
+      //      std::cout << "person x: " << maperson.position.x << " y: " << maperson.position.y << std::endl;
       mapeople.poses.push_back(maperson);
     } 
     rgbdpoints.clear();
   }
+}
+
+bool serviceCallback(vizzy_msgs::PersonInSight::Request &req, vizzy_msgs::PersonInSight::Response &res){
+  int s = mapeople.poses.size();
+  bool person = false;
+  if(s > 0){
+    person = true;
+  }
+    
+  res.insight = person;
+  return true;
 }
 
 int main(int argc, char **argv){
@@ -156,7 +176,8 @@ int main(int argc, char **argv){
   ros::NodeHandle n;
   listener = new (tf::TransformListener);
   ros::Subscriber bb_sub = n.subscribe("/detections", 1, bbCallback); 
-  ros::Subscriber pcl_sub = n.subscribe("/head_camera/depth_registered/points", 1, pclCallback); 
+  ros::Subscriber pcl_sub = n.subscribe("/camera/depth_registered/points", 1, pclCallback); 
+  ros::ServiceServer kidservice = n.advertiseService("PersonInSight", serviceCallback);
   ros::Publisher mapeople_pub = n.advertise<geometry_msgs::PoseArray>("mapeople", 1);
   
   ros::Timer timer = n.createTimer(ros::Duration(0.1), timerCallback);
