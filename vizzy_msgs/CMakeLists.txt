@@ -21,6 +21,7 @@ add_service_files(
   FILES
   StartFollowing.srv
   PersonInSight.srv
+  ChangeRadius.srv
 )
 
 generate_messages(

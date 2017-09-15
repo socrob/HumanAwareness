@@ -4,6 +4,7 @@
 #include "sensor_msgs/PointCloud2.h"
 #include "vizzy_msgs/PersonInSight.h"
 #include "vizzy_msgs/StartFollowing.h"
+#include "vizzy_msgs/ChangeRadius.h"
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
@@ -26,6 +27,7 @@ sensor_msgs::PointCloud2 pcloud;
 tf::TransformListener* listener;
 double kid_height = 0.4;
 bool startfollow = false;
+double radiusd = 2.5;
 void timerCallback(const ros::TimerEvent& event){
   try{
     listener->waitForTransform("/base_link", "/head_camera_rgb_optical_frame",ros::Time(0), ros::Duration(3.0));
@@ -33,6 +35,7 @@ void timerCallback(const ros::TimerEvent& event){
   catch (tf::TransformException &ex) {
     ROS_ERROR("%s",ex.what());
   }
+  std::cout <<"radius: " << radiusd << std::endl;
 }
 pcl::PointXYZ findpclpoint(pcl::PointCloud<pcl::PointXYZ> cloud, geometry_msgs::Point crowdpoint){
   pcl::PointXYZ rgbdpoint, aux_pxyz;
@@ -99,8 +102,8 @@ bool inradius(pcl::PointXYZ point){
   //float at = atan2(pointout.point.y,pointout.point.x);
   
   float d = sqrt(pow(pointout.point.x,2) + pow(pointout.point.y,2));
-
-  if(d < 2.5){
+  
+  if(d < radiusd){
     in = true;
   }else{
     in = false;
@@ -188,6 +191,12 @@ bool followserviceCallback(vizzy_msgs::StartFollowing::Request &req, vizzy_msgs:
   return true;
 }
 
+bool changeradiusCallback(vizzy_msgs::ChangeRadius::Request &req, vizzy_msgs::ChangeRadius::Response &res){
+  radiusd = req.distance;
+  res.change = true;
+  return true;
+}
+
 int main(int argc, char **argv){
 
   ros::init(argc, argv, "centralp");
@@ -197,6 +206,7 @@ int main(int argc, char **argv){
   ros::Subscriber pcl_sub = n.subscribe("/head_camera/depth_registered/points", 1, pclCallback); 
   ros::ServiceServer insightservice = n.advertiseService("PersonInFront", insightserviceCallback);
   ros::ServiceServer followservice = n.advertiseService("FollowNow", followserviceCallback);
+  ros::ServiceServer radiusservice = n.advertiseService("DetectRadius", changeradiusCallback);
   ros::Publisher mapeople_pub = n.advertise<geometry_msgs::PoseArray>("mapeople", 1);
   
   ros::Timer timer = n.createTimer(ros::Duration(0.1), timerCallback);
