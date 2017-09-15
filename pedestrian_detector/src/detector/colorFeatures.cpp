@@ -1,6 +1,9 @@
+#include <opencv2/opencv.hpp>
 #include "../include/detector/colorFeatures.hpp"
-#include <opencv/highgui.h>
-#include <opencv/cv.h>
+#include <opencv2/highgui.hpp>
+//#include <opencv/cv.h>
+#include <opencv2/imgproc/imgproc.hpp>
+
 
 using namespace std;
 

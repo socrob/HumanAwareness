@@ -61,6 +61,7 @@
   <build_depend>bfl</build_depend>
   <build_depend>cmake_modules</build_depend>
   <build_depend>nav_msgs</build_depend>
+  <build_depend>mcr_semantic_robot_localizer</build_depend>
 
   <run_depend>cmake_modules</run_depend>
   <run_depend>interactive_markers</run_depend>
@@ -82,7 +83,8 @@
   <run_depend>bfl</run_depend>
   <run_depend>vizzy_msgs</run_depend>
   <run_depend>nav_msgs</run_depend>
-
+  <run_depend>mcr_semantic_robot_localizer</run_depend>
+  
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->

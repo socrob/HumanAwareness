@@ -31,7 +31,7 @@
 #include <opencv2/opencv.hpp>
 
 using namespace cv;
-
+using namespace std;
 /*
  * Some helper functions for reading image files to be used in the Piotr Dollar
  * toolbox, to print to the console, write to a MatLab compatibile file, etc.

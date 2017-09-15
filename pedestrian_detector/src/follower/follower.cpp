@@ -48,7 +48,7 @@ void Follower::update(){
   //double norm_v = abs(sqrt(x*x + y*y));
   //double ux = vx/norm_v;
   //double uy = vy/norm_v;
-  double d = 0.5;
+  double d = 0.6;
   double final_x = d*vx;
   double final_y = d*vy;
    
@@ -57,7 +57,7 @@ void Follower::update(){
   event_out_msg_.pose.position.y = final_y;
   event_out_msg_.pose.position.z = z;
   event_out_msg_.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(final_y,final_x));
-  //rotateHead(event_out_msg_.pose.position);
+  rotateHead(event_in_msg_.point);
   //pub_event_in_.publish(stop_);
   pub_pose_in_.publish(event_out_msg_);
   //pub_event_in_.publish(start_);

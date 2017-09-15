@@ -18,6 +18,8 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   pcl_conversions
   pcl_ros
+  vizzy_msgs
+  mcr_semantic_robot_localizer
 )
 
 find_package(OpenCV REQUIRED)
