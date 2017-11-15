@@ -9,7 +9,6 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_core
   moveit_ros_planning
   moveit_ros_planning_interface
-
 )
 
 add_action_files(
@@ -32,8 +31,8 @@ generate_messages(
   actionlib_msgs
 )
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES vizzy_msgs
-#  CATKIN_DEPENDS other_catkin_pkg
-#  DEPENDS system_lib
+  #  INCLUDE_DIRS include
+  #  LIBRARIES vizzy_msgs
+#  CATKIN_DEPENDS other_catkin_pk
+  #  DEPENDS system_lib
 )
