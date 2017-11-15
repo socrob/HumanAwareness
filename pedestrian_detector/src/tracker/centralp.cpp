@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include "geometry_msgs/PointStamped.h"
 #include "geometry_msgs/PoseArray.h"
+#include "geometry_msgs/Pose.h"
 #include "sensor_msgs/PointCloud2.h"
 #include "vizzy_msgs/PersonInSight.h"
 #include "vizzy_msgs/StartFollowing.h"
@@ -175,13 +176,16 @@ void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
 }
 
 bool insightserviceCallback(vizzy_msgs::PersonInSight::Request &req, vizzy_msgs::PersonInSight::Response &res){
-  int s = mapeople.poses.size();
+  int s = mapeople.poses.size(); //PoseArray
   bool person = false;
+  geometry_msgs::Pose person_pose;
   if(s > 0){
     person = true;
+    person_pose = mapeople.poses[0];
   }
     
   res.insight = person;
+  res.person_pose = person_pose;
   return true;
 }
 

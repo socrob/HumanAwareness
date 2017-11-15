@@ -1,3 +1,4 @@
 bool start
 ----
 bool insight
+geometry_msgs/Pose person_pose
