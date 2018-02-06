@@ -77,6 +77,10 @@ private:
     //Callback to process the images
     void imageCb(const sensor_msgs::ImageConstPtr& msg)
     {
+        if(detectionPublisher.getNumSubscribers() == 0 && image_pub.getNumSubscribers() == 0){
+        ros::Duration(0.3).sleep();
+	  return;
+        }
         tic();
 
         cv_bridge::CvImagePtr cv_ptr;
