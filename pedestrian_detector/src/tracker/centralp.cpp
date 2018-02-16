@@ -193,8 +193,13 @@ void DestroySubscribers(){
 }
 
 bool insightserviceCallback(vizzy_msgs::PersonInSight::Request &req, vizzy_msgs::PersonInSight::Response &res){
-  if(!startfollow)
+  if(!startfollow && req.start)
     ActivateSubscribers();
+  else if (!startfollow && !req.start){
+    DestroySubscribers();
+    res.insight = false;
+    return true;
+  }
   bool person = false;
   geometry_msgs::PoseStamped person_pose;
   for(int tryy=0; tryy < req.number_tries; ++tryy){
@@ -208,6 +213,7 @@ bool insightserviceCallback(vizzy_msgs::PersonInSight::Request &req, vizzy_msgs:
     }
     ros::Duration(0.2).sleep();
   }
+  mapeople.poses.clear();
   res.insight = person;
   res.person_pose = person_pose;
 
