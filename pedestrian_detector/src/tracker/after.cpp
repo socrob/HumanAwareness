@@ -6,6 +6,9 @@
 #include "people_msgs/People.h"
 #include <geometry_msgs/Vector3Stamped.h>
 #include <geometry_msgs/PointStamped.h>
+#include <tf/transform_broadcaster.h>
+#include <tf/transform_listener.h>
+
 
 bool id = false;
 std::string name;
@@ -36,20 +39,28 @@ int closerperson(std::vector<people_msgs::Person> m,int s){
 void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
   int s = msg->people.size();
   geometry_msgs::PointStamped personpoint;
-
-
+  static tf::TransformBroadcaster br;
+  tf::Transform transform;
+  tf::Quaternion q;
+  geometry_msgs::Point p;
+  float vx, vy, at,personvx,personvy;
+  
   if(!id){
     id = true;
     int i = closerperson(msg->people,s);
     name = msg->people[i].name;
     personpoint.point = msg->people[i].position;
     personpoint.header = msg->header;
+    personvx = msg->people[i].velocity.x;
+    personvy = msg->people[i].velocity.y;
   }else{
     int count = 0;
     for(int i = 0; i < s; i++){
       if(name == msg->people[i].name){
 	personpoint.point = msg->people[i].position;
 	personpoint.header = msg->header;
+	personvx = msg->people[i].velocity.x;
+	personvy = msg->people[i].velocity.y;
       }else{
 	count++;
 	  }
@@ -58,10 +69,25 @@ void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
        	name = msg->people[j].name;
 	personpoint.point = msg->people[j].position;
 	personpoint.header = msg->header;
+	personvx = msg->people[i].velocity.x;
+	personvy = msg->people[i].velocity.y;
       }
     }
   }
   personposition=personpoint;
+  std::cout << "tf pub" << std::endl;
+
+  p.x = personpoint.point.x;
+  p.y = personpoint.point.y;
+  vx = personvx;
+  vy = personvy;
+
+  at = atan2(vy, vx);
+  q = tf::createQuaternionFromYaw(at);
+
+  transform.self,setRotation(q);
+  transform.setOrigin( tf::Vector3(p.x, p.y, 0.0));
+  br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "base_link", "tracked_person"));
 //end
 }
 
