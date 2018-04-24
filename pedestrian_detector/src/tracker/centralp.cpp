@@ -29,6 +29,10 @@ tf::TransformListener* listener;
 double kid_height = 0.4;
 bool startfollow = false;
 double radiusd = 2.5;
+ros::Subscriber bb_sub;
+ros::Subscriber pcl_sub;
+ros::NodeHandle* n;
+
 void timerCallback(const ros::TimerEvent& event){
   try{
     listener->waitForTransform("/base_link", "/head_camera_rgb_optical_frame",ros::Time(0), ros::Duration(3.0));
@@ -77,7 +81,7 @@ pcl::PointXYZ findpclpoint(pcl::PointCloud<pcl::PointXYZ> cloud, geometry_msgs::
 
 void pclCallback(const sensor_msgs::PointCloud2ConstPtr& pcloudmsg){
   //std::cout << "pclCallback" << std::endl;
-  
+
   pcloud = *pcloudmsg;
 
 }
@@ -85,25 +89,25 @@ void pclCallback(const sensor_msgs::PointCloud2ConstPtr& pcloudmsg){
 bool inradius(pcl::PointXYZ point){
   geometry_msgs::PointStamped pointin, pointout;
   bool in;
-  
+
   pointin.point.x = point.x;
   pointin.point.y = point.y;
   pointin.point.z = point.z;
   pointin.header.stamp = ros::Time::now();
   pointin.header.frame_id = "/head_camera_rgb_optical_frame";
-  
+
   try{
     //listener.waitForTransform("/asus_object_rgb_optical_frame", "/map",ros::Time(0), ros::Duration(3.0));
-    listener->transformPoint("/base_link",ros::Time(0),pointin,"/head_camera_rgb_optical_frame",pointout); 
+    listener->transformPoint("/base_link",ros::Time(0),pointin,"/head_camera_rgb_optical_frame",pointout);
   }
   catch (tf::TransformException &ex) {
     ROS_ERROR("%s",ex.what());
   }
-  
+
   //float at = atan2(pointout.point.y,pointout.point.x);
-  
+
   float d = sqrt(pow(pointout.point.x,2) + pow(pointout.point.y,2));
-  
+
   if(d < radiusd){
     in = true;
   }else{
@@ -123,9 +127,9 @@ void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
   pcl::fromPCLPointCloud2(pcl_pc2,cloud);
   bool org = cloud.isOrganized();
   bool goodp;
-  
+
   if(org){
-  
+
     pcl::PointXYZ rgbdpoint;
     std::vector<pcl::PointXYZ> rgbdpoints;
     std::vector<geometry_msgs::PointStamped> mapoints;
@@ -135,30 +139,30 @@ void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
     for(int i = 0; i < psize; i++){
       float center_x = bpeople->headsVector[i].x + bpeople->headsVector[i].width/2;
       float center_y = bpeople->headsVector[i].y + bpeople->headsVector[i].height/2;
-    
+
       crowdpoint.x = center_x;
       crowdpoint.y = center_y;
       crowdpoint.z = 0;
 
       rgbdpoint = findpclpoint(cloud,crowdpoint);
-      
+
       goodp = inradius(rgbdpoint);
       if(goodp){
 	rgbdpoints.push_back(rgbdpoint);//fazer clear do crowdpoints
       }
     }
-    int rgbdsize = rgbdpoints.size(); 
+    int rgbdsize = rgbdpoints.size();
     for(int i = 0; i < rgbdsize ; i++){
       //rgbdpoint = cloud.at(crowdpoints[i].x,crowdpoints[i].y);
-    
+
       asuspoint.point.x = rgbdpoints[i].x;
       asuspoint.point.y = rgbdpoints[i].y;
       asuspoint.point.z = rgbdpoints[i].z;
       asuspoint.header.stamp = ros::Time::now();
       asuspoint.header.frame_id = "/head_camera_rgb_optical_frame";
-    
+
       try{
-	listener->transformPoint("/base_link",ros::Time(0),asuspoint,"/head_camera_rgb_optical_frame",mapoint); 
+	listener->transformPoint("/base_link",ros::Time(0),asuspoint,"/head_camera_rgb_optical_frame",mapoint);
       }catch (tf::TransformException &ex) {
 	ROS_ERROR("%s",ex.what());
       }
@@ -170,29 +174,56 @@ void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
       maperson.orientation.w = 1;
       //      std::cout << "person x: " << maperson.position.x << " y: " << maperson.position.y << std::endl;
       mapeople.poses.push_back(maperson);
-    } 
+    }
     rgbdpoints.clear();
   }
 }
 
+void ActivateSubscribers(){
+  ROS_INFO("Activating subscribers");
+  bb_sub = n->subscribe("/detections", 1, bbCallback);
+  pcl_sub = n->subscribe("/head_camera/depth_registered/points", 1, pclCallback);
+  ros::Duration(0.2).sleep();
+}
+
+void DestroySubscribers(){
+  ROS_INFO("Destroying subscribers");
+  bb_sub.shutdown();
+  pcl_sub.shutdown();
+}
+
 bool insightserviceCallback(vizzy_msgs::PersonInSight::Request &req, vizzy_msgs::PersonInSight::Response &res){
-  int s = mapeople.poses.size(); //PoseArray
+  if(!startfollow)
+    ActivateSubscribers();
   bool person = false;
   geometry_msgs::PoseStamped person_pose;
-  if(s > 0){
-    person = true;
-    person_pose.pose = mapeople.poses[0];
-    person_pose.header = mapeople.header;
+  for(int tryy=0; tryy < req.number_tries; ++tryy){
+    ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(0));
+    int s = mapeople.poses.size(); //PoseArray
+    if(s > 0){
+        person = true;
+        person_pose.pose = mapeople.poses[0];
+        person_pose.header = mapeople.header;
+        break;
+    }
+    ros::Duration(0.2).sleep();
   }
-    
   res.insight = person;
   res.person_pose = person_pose;
+
+  if(!startfollow)
+    DestroySubscribers();
   return true;
 }
 
 bool followserviceCallback(vizzy_msgs::StartFollowing::Request &req, vizzy_msgs::StartFollowing::Response &res){
   startfollow = req.start;
   res.follow = startfollow;
+  if(startfollow){
+    ActivateSubscribers();
+  }else{
+    DestroySubscribers();
+  }
   return true;
 }
 
@@ -205,16 +236,15 @@ bool changeradiusCallback(vizzy_msgs::ChangeRadius::Request &req, vizzy_msgs::Ch
 int main(int argc, char **argv){
 
   ros::init(argc, argv, "centralp");
-  ros::NodeHandle n;
+  n = new(ros::NodeHandle);
   listener = new (tf::TransformListener);
-  ros::Subscriber bb_sub = n.subscribe("/detections", 1, bbCallback); 
-  ros::Subscriber pcl_sub = n.subscribe("/head_camera/depth_registered/points", 1, pclCallback); 
-  ros::ServiceServer insightservice = n.advertiseService("PersonInFront", insightserviceCallback);
-  ros::ServiceServer followservice = n.advertiseService("FollowNow", followserviceCallback);
-  ros::ServiceServer radiusservice = n.advertiseService("DetectRadius", changeradiusCallback);
-  ros::Publisher mapeople_pub = n.advertise<geometry_msgs::PoseArray>("mapeople", 1);
-  
-  ros::Timer timer = n.createTimer(ros::Duration(0.1), timerCallback);
+
+  ros::ServiceServer insightservice = n->advertiseService("PersonInFront", insightserviceCallback);
+  ros::ServiceServer followservice = n->advertiseService("FollowNow", followserviceCallback);
+  ros::ServiceServer radiusservice = n->advertiseService("DetectRadius", changeradiusCallback);
+  ros::Publisher mapeople_pub = n->advertise<geometry_msgs::PoseArray>("mapeople", 1);
+
+  ros::Timer timer = n->createTimer(ros::Duration(0.1), timerCallback);
 
   ros::Rate loop_rate(20);
   while (ros::ok()){

@@ -1,4 +1,5 @@
 bool start
+uint8 number_tries
 ----
 bool insight
 geometry_msgs/PoseStamped person_pose

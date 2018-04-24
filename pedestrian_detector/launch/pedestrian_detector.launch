@@ -8,8 +8,8 @@
   <arg name="camera" default="head_camera" />
   <arg name="follower" default="true" />
   <arg name="following_planner_mode" default="global_map" />
-  <include file="$(find bayes_people_tracker)/launch/people_tracker.launch"/>
-  <node pkg="pedestrian_detector" type="detector" name="detector" output="screen">
+  <!--include file="$(find bayes_people_tracker)/launch/people_tracker.launch"/-->
+  <node pkg="pedestrian_detector" type="detector" name="detector">
     <remap from="image_in" to="$(arg image_in)"/>
     <remap from="image_out" to="$(arg image_out)"/>
     <param name="detector_type" type="str" value="$(arg detector_type)"/>
@@ -27,7 +27,7 @@
   <!--node pkg="pedestrian_detector" type="tracker" name="tracker" output="screen">
   <rosparam file="$(find pedestrian_detector)/config/tracker_params.yaml" command="load"/>
   </node-->
-  <node pkg="pedestrian_detector" type="centralp" name="before_tracker" output="screen">
+  <node pkg="pedestrian_detector" type="centralp" name="before_tracker">
   </node>
   <node pkg="pedestrian_detector" type="after" name="after_tracker">
   </node>
