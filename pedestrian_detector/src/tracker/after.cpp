@@ -85,7 +85,7 @@ void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
   at = atan2(vy, vx);
   q = tf::createQuaternionFromYaw(at);
 
-  transform.self,setRotation(q);
+  transform.setRotation(q);
   transform.setOrigin( tf::Vector3(p.x, p.y, 0.0));
   br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "base_link", "tracked_person"));
 //end
