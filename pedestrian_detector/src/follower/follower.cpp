@@ -5,15 +5,19 @@
 Follower::Follower():nh_("~"),is_event_in_received_(false){
   // subscriptions
   sub_event_in_ = nh_.subscribe("/person_position",1,&Follower::eventInCallBack,this);
+  sub_robot_pose_ = nh_.subscribe("/amcl_pose",1,&Follower::robotPoseCallBack,this);
+
   //pub_event_in_ = nh_.advertise<std_msgs::String>("/move_base_wrapper/event_in",2);
   pub_pose_in_ = nh_.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal",2);
   pub_head_rot_ = nh_.advertise<std_msgs::UInt8MultiArray>("/cmd_head",2);
   // querying parameters from parameter server
   getParams();
+  //Services
+  plan_client_ = nh_.serviceClient<nav_msgs::GetPlan>("/move_base/GlobalPlanner/make_plan");
+  clear_client_ = nh_.serviceClient<std_srvs::Empty>("/move_base/clear_costmaps");
   //start_.data = "e_start";
   //stop_.data = "e_stop";
-  listener = new (tf::TransformListener);
-  
+  listener_ = new (tf::TransformListener);
 }
   
 Follower::~Follower(){
@@ -28,6 +32,11 @@ void Follower::getParams(){
 void Follower::eventInCallBack(const geometry_msgs::PointStampedConstPtr& msg){
   event_in_msg_ = *msg;
   is_event_in_received_ = true;
+}
+
+void Follower::robotPoseCallBack(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg){
+  start_.header = msg->header;
+  start_.pose = msg->pose.pose;
 }
 
 void Follower::update(){
@@ -51,16 +60,43 @@ void Follower::update(){
   double d = 0.6;
   double final_x = d*vx;
   double final_y = d*vy;
-   
-  event_out_msg_.header=event_in_msg_.header;
-  event_out_msg_.pose.position.x = final_x;
-  event_out_msg_.pose.position.y = final_y;
-  event_out_msg_.pose.position.z = z;
-  event_out_msg_.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(final_y,final_x));
-  rotateHead(event_in_msg_.point);
+
+  goal_.header = event_in_msg_.header;
+  goal_.pose.position.x = final_x;
+  goal_.pose.position.y = final_y;
+  goal_.pose.position.z = z;
+  goal_.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(final_y,final_x));
+  
+  //bool path = isthereaPath(goal_);
+  
+  // if (path){
+  //   std::cout << "there is path" << std::endl;
+  //   event_out_msg_ = goal_;
+  //   pointGoal_ = event_in_msg_.point;
+  //   //personPoses_.push_back(goal_) = ;
+  //   keptPose_ = goal_;
+  //   keptPoint_ = event_in_msg_.point;
+  // }else{
+  //   std::cout << "there is no path" << std::endl;
+  //   event_out_msg_ = keptPose_;
+  //   //pointGoal_ = keptPoint_;
+  //   keptPoint_ = event_in_msg_.point;
+  // }
+  
+  
   //pub_event_in_.publish(stop_);
-  pub_pose_in_.publish(event_out_msg_);
+  clearCostmaps();
+  std::cout << "sending goal" << std::endl;
+  //rotateHead(event_in_msg_.point);
+  pub_pose_in_.publish(goal_);
   //pub_event_in_.publish(start_);
+
+}
+
+void Follower::update_head(){
+  // listen to callbacks
+  ros::spinOnce();
+  rotateHead(event_in_msg_.point);
 }
 
 void Follower::rotateHead(geometry_msgs::Point p){
@@ -68,7 +104,7 @@ void Follower::rotateHead(geometry_msgs::Point p){
   double roll, pitch, yaw;
   
   try{ 
-    listener->lookupTransform("/base_link", "/head_link", ros::Time(0), transform);
+    listener_->lookupTransform("/base_link", "/head_link", ros::Time(0), transform);
   }catch (tf::TransformException &ex) {
     ROS_ERROR("%s",ex.what());
   }
@@ -97,6 +133,31 @@ void Follower::rotateHead(geometry_msgs::Point p){
   pub_head_rot_.publish(controlMsg);
 }
 
+bool Follower::isthereaPath(geometry_msgs::PoseStamped goal){
+  nav_msgs::GetPlan srv;
+  srv.request.start = start_;
+  srv.request.goal = goal;
+  if (!plan_client_.call(srv)){
+    ROS_ERROR("Failed to call service make_plan");
+    return false;
+  }else{
+    if(srv.response.plan.poses.size() > 0){
+      std::cout << "plan" << std::endl;
+      return true;
+    }else{
+      std::cout << "no plan" << std::endl;
+      return false;
+    }
+  }
+}
+
+void Follower::clearCostmaps(){
+  std_srvs::Empty srv;
+  if (!clear_client_.call(srv)){
+    ROS_ERROR("Failed to Clear Costmaps");
+  }
+}
+
 int main(int argc, char** argv){
   ros::init(argc, argv, "Follower");
   
@@ -108,7 +169,11 @@ int main(int argc, char** argv){
   ros::Rate loop_rate(node_frequency);
 
   while(ros::ok()){
-    follower.update();
+    if(follower.is_event_in_received_){
+      follower.clearCostmaps();
+    }
+    //follower.update();
+    follower.update_head();
     loop_rate.sleep();
   }
   
