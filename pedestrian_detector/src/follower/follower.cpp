@@ -172,7 +172,7 @@ int main(int argc, char** argv){
     if(follower.is_event_in_received_){
       follower.clearCostmaps();
     }
-    //follower.update();
+    follower.update();
     follower.update_head();
     loop_rate.sleep();
   }
