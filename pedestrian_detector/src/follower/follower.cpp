@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-Follower::Follower():nh_("~"),is_event_in_received_(false){
+Follower::Follower():is_event_in_received_(false), nh_("~"){
   // subscriptions
   sub_event_in_ = nh_.subscribe("/person_position",1,&Follower::eventInCallBack,this);
   sub_robot_pose_ = nh_.subscribe("/amcl_pose",1,&Follower::robotPoseCallBack,this);
@@ -96,6 +96,8 @@ void Follower::update(){
 void Follower::update_head(){
   // listen to callbacks
   ros::spinOnce();
+
+  if(!is_event_in_received_) return;
   rotateHead(event_in_msg_.point);
 }
 
