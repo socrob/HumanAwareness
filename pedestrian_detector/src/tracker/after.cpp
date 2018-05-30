@@ -97,8 +97,8 @@ int main(int argc,char* argv[]){
   ros::NodeHandle n;
   //listener = new (tf::TransformListener);
 
-  ros::Subscriber trackpeople_sub = n.subscribe("/people_tracker/people", 1, peopletrackCallback);
-  ros::Publisher personpub = n.advertise<geometry_msgs::PointStamped>("/person_position",10);
+  ros::Subscriber trackpeople_sub = n.subscribe("people_tracker/people", 1, peopletrackCallback);
+  ros::Publisher personpub = n.advertise<geometry_msgs::PointStamped>("person_position",10);
   
   ros::Rate loop(20);
   while(ros::ok()){

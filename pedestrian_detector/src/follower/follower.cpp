@@ -2,9 +2,9 @@
 #include <string>
 #include <vector>
 
-Follower::Follower():is_event_in_received_(false), nh_("~"){
+Follower::Follower():is_event_in_received_(false), nh_(ros::NodeHandle()){
   // subscriptions
-  sub_event_in_ = nh_.subscribe("/person_position",1,&Follower::eventInCallBack,this);
+  sub_event_in_ = nh_.subscribe("person_position",1,&Follower::eventInCallBack,this);
   sub_robot_pose_ = nh_.subscribe("/amcl_pose",1,&Follower::robotPoseCallBack,this);
 
   //pub_event_in_ = nh_.advertise<std_msgs::String>("/move_base_wrapper/event_in",2);

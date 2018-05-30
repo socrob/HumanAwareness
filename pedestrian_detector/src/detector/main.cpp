@@ -66,6 +66,7 @@ private:
     image_transport::Subscriber image_sub;
     image_transport::Publisher image_pub;
     std::string detectorType;
+    std::string imageIn;
     double minDetectionScore;
 
     //Our detectors
@@ -217,6 +218,7 @@ public:
         //Initialization
 
 
+        nPriv.param<std::string>("image_in", imageIn, "/head_camera/rgb/image_raw");
         nPriv.param<std::string>("detector_type", detectorType, "full");
         nPriv.param<double>("min_score", minDetectionScore, 30);
 
@@ -231,7 +233,7 @@ public:
 
         //Subscribe to vizzy's left camera
         //Change this later
-        image_sub = it->subscribe("/head_camera/rgb/image_rect_color", 1, &PedDetector::imageCb, this);
+        image_sub = it->subscribe(imageIn, 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("image_in", 1, &PedDetector::imageCb, this);
     }

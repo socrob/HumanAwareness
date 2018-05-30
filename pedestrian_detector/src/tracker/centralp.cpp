@@ -181,7 +181,7 @@ void bbCallback(const pedestrian_detector::DetectionListConstPtr& bpeople){
 
 void ActivateSubscribers(){
   ROS_INFO("Activating subscribers");
-  bb_sub = n->subscribe("/detections", 1, bbCallback);
+  bb_sub = n->subscribe("detections", 1, bbCallback);
   pcl_sub = n->subscribe("/head_camera/depth_registered/points", 1, pclCallback);
   ros::Duration(0.2).sleep();
 }
@@ -245,9 +245,9 @@ int main(int argc, char **argv){
   n = new(ros::NodeHandle);
   listener = new (tf::TransformListener);
 
-  ros::ServiceServer insightservice = n->advertiseService("PersonInFront", insightserviceCallback);
-  ros::ServiceServer followservice = n->advertiseService("FollowNow", followserviceCallback);
-  ros::ServiceServer radiusservice = n->advertiseService("DetectRadius", changeradiusCallback);
+  ros::ServiceServer insightservice = n->advertiseService("/PersonInFront", insightserviceCallback);
+  ros::ServiceServer followservice = n->advertiseService("/FollowNow", followserviceCallback);
+  ros::ServiceServer radiusservice = n->advertiseService("/DetectRadius", changeradiusCallback);
   ros::Publisher mapeople_pub = n->advertise<geometry_msgs::PoseArray>("mapeople", 1);
 
   ros::Timer timer = n->createTimer(ros::Duration(0.1), timerCallback);
