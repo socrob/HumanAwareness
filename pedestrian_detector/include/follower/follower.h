@@ -62,7 +62,7 @@ class Follower
  
 
   // stores the msg in event_in callback
-  geometry_msgs::PointStamped event_in_msg_;
+  geometry_msgs::PointStamped person_position_msg_;
   
   // stores que msg that will be published on event_out topic
   geometry_msgs::PoseStamped event_out_msg_;

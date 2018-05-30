@@ -2,9 +2,11 @@
 <launch>
 <!--  <arg name="image_in" default="/vizzy/l_camera/image_rect_color" /> -->
 
-  <group ns="people_follower">
+  <arg name="namespace" default="people_follower" />
+
+  <group ns="$(arg namespace)">
   
-    <arg name="image_in" default="/head_camera/rgb/image_rawASDASDASD" />
+    <arg name="image_in" default="/head_camera/rgb/image_raw" />
     <arg name="image_out" default="pedestrian_detector_image" />
     <arg name="detector_type" default="full" />
     <arg name="camera" default="head_camera" />

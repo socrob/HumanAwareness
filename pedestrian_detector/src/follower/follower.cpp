@@ -19,7 +19,7 @@ Follower::Follower():is_event_in_received_(false), nh_(ros::NodeHandle()){
   //stop_.data = "e_stop";
   listener_ = new (tf::TransformListener);
 }
-  
+
 Follower::~Follower(){
   sub_event_in_.shutdown();
   //pub_event_in_.shutdown();
@@ -30,7 +30,7 @@ void Follower::getParams(){
 }
 
 void Follower::eventInCallBack(const geometry_msgs::PointStampedConstPtr& msg){
-  event_in_msg_ = *msg;
+  person_position_msg_ = *msg;
   is_event_in_received_ = true;
 }
 
@@ -48,9 +48,18 @@ void Follower::update(){
   // reset flag
   is_event_in_received_ = false;
 
-  double x = event_in_msg_.point.x;
-  double y = event_in_msg_.point.y;
-  double z = event_in_msg_.point.z;
+  Stamped< tf::Point > person_base_link;
+
+  tf::transformPoint	(
+    "base_link", // const std::string & 	target_frame
+    person_position_msg_, // const Stamped< tf::Point > & 	stamped_in,
+    person_base_link // Stamped< tf::Point > & 	stamped_out
+)	;
+
+
+  double x = person_position_msg_.point.x;
+  double y = person_position_msg_.point.y;
+  double z = person_position_msg_.point.z;
   
   double vx = x;
   double vy = y;
@@ -61,7 +70,10 @@ void Follower::update(){
   double final_x = d*vx;
   double final_y = d*vy;
 
-  goal_.header = event_in_msg_.header;
+  goal_.header = person_position_msg_.header;
+
+  ROS_INFO_STREAM("Received person position in frame [" << goal_.header.frame_id << "] ");
+
   goal_.pose.position.x = final_x;
   goal_.pose.position.y = final_y;
   goal_.pose.position.z = z;
@@ -72,22 +84,22 @@ void Follower::update(){
   // if (path){
   //   std::cout << "there is path" << std::endl;
   //   event_out_msg_ = goal_;
-  //   pointGoal_ = event_in_msg_.point;
+  //   pointGoal_ = person_position_msg_.point;
   //   //personPoses_.push_back(goal_) = ;
   //   keptPose_ = goal_;
-  //   keptPoint_ = event_in_msg_.point;
+  //   keptPoint_ = person_position_msg_.point;
   // }else{
   //   std::cout << "there is no path" << std::endl;
   //   event_out_msg_ = keptPose_;
   //   //pointGoal_ = keptPoint_;
-  //   keptPoint_ = event_in_msg_.point;
+  //   keptPoint_ = person_position_msg_.point;
   // }
   
   
   //pub_event_in_.publish(stop_);
   clearCostmaps();
   std::cout << "sending goal" << std::endl;
-  //rotateHead(event_in_msg_.point);
+  //rotateHead(person_position_msg_.point);
   pub_pose_in_.publish(goal_);
   //pub_event_in_.publish(start_);
 
@@ -98,7 +110,7 @@ void Follower::update_head(){
   ros::spinOnce();
 
   if(!is_event_in_received_) return;
-  rotateHead(event_in_msg_.point);
+  rotateHead(person_position_msg_.point);
 }
 
 void Follower::rotateHead(geometry_msgs::Point p){

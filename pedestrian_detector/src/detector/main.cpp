@@ -218,7 +218,7 @@ public:
         //Initialization
 
 
-        nPriv.param<std::string>("image_in", imageIn, "/head_camera/rgb/image_raw");
+        nPriv.param<std::string>("image_in", imageIn, "image_in");
         nPriv.param<std::string>("detector_type", detectorType, "full");
         nPriv.param<double>("min_score", minDetectionScore, 30);
 
