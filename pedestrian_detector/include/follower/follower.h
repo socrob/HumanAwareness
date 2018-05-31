@@ -35,17 +35,19 @@ class Follower
   void robotPoseCallBack(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
   
   // ros node main loop
-  void update();
+  void updateNavigationGoal();
 
-  void update_head();
+  void updateHeadPosition();
 
   void clearCostmaps();
   
   // rotate head towards person
   void rotateHead(geometry_msgs::Point p);
 
+  void loop();
+
   // flag used to know when we have received a callback
-  bool is_event_in_received_;  
+  bool new_person_position_received_;
   
  private:  
   // ros related variables
@@ -54,18 +56,25 @@ class Follower
   //ros::Publisher pub_event_in_;
   ros::Publisher pub_pose_in_;
   ros::Publisher pub_head_rot_;
-  ros::Subscriber sub_event_in_;
+  ros::Subscriber filtered_person_position_subscriber_;
   ros::Subscriber sub_robot_pose_;
   ros::ServiceClient plan_client_;
   ros::ServiceClient clear_client_;
   
- 
+  bool following_enabled_; // TODO enable/disable with event topics
 
-  // stores the msg in event_in callback
-  geometry_msgs::PointStamped person_position_msg_;
+  // Type of navigation. Set by default through parameters. Can be updated dinamically to implement different navigation stategies.
+  // TODO change dinamically (state machine?)
+  std::string navigation_type_, navigation_stack_;
+
+  // Position of the person from the Bayesian filter
+  geometry_msgs::PointStamped filtered_person_position_;
+
+  // Position of the person in base_link.
+  geometry_msgs::PointStamped relative_person_position_;
   
-  // stores que msg that will be published on event_out topic
-  geometry_msgs::PoseStamped event_out_msg_;
+  // // stores que msg that will be published on event_out topic
+  // geometry_msgs::PoseStamped event_out_msg_; // TODO remove unused
   
   // for storing the arguments that will be read from param server
   std::vector<std::string> script_arguments_;
