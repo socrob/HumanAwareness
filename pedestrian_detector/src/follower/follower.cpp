@@ -56,13 +56,22 @@ void Follower::filteredPersonPositionCallback(const geometry_msgs::PointStampedC
   // Save the position as point, in its original frame
   filtered_person_position_ = *msg;
 
-  if(filtered_person_position_.header.frame_id != "base_link")
+  ROS_INFO("Absolute person position in frame [%s]: %2.3f, %2.3f",  filtered_person_position_.header.frame_id.c_str(), filtered_person_position_.point.x, filtered_person_position_.point.y);
+
+  if(filtered_person_position_.header.frame_id != "/map")
     ROS_WARN("Person position not in fixed frame");
   
   // Obtain the person's position in the robot's frame
   // TODO wrap exception
-  listener_->transformPoint("/base_link", filtered_person_position_, relative_person_position_);
-  
+  try{
+    listener_->transformPoint("/base_link", filtered_person_position_, relative_person_position_);
+  }catch(tf2::ExtrapolationException &ex){
+    ROS_WARN("%s",ex.what());
+  }catch (tf::TransformException &ex) {
+    ROS_WARN("%s",ex.what());
+  }
+
+  ROS_INFO("Relative person position in frame [%s]: %2.3f, %2.3f",  relative_person_position_.header.frame_id.c_str(), relative_person_position_.point.x, relative_person_position_.point.y);  
 
   // Update path and trajectory only when the person moves some distance
 
@@ -95,13 +104,8 @@ void Follower::filteredPersonPositionCallback(const geometry_msgs::PointStampedC
     trajectory_publisher_.publish(complete_person_trajectory_);
 
   }
-  
-
 
   new_person_position_received_ = true;
-
-  ROS_INFO("Absolute person position in frame [%s]: %2.3f, %2.3f",  filtered_person_position_.header.frame_id.c_str(), filtered_person_position_.point.x, filtered_person_position_.point.y);
-  ROS_INFO("Relative person position in frame [%s]: %2.3f, %2.3f",  relative_person_position_.header.frame_id.c_str(), relative_person_position_.point.x, relative_person_position_.point.y);
 
 }
 
@@ -115,7 +119,6 @@ void Follower::updateNavigationGoal(){
   double x = relative_person_position_.point.x;
   double y = relative_person_position_.point.y;
   double z = relative_person_position_.point.z;
-  
 
   // Direct navigation
   if(navigation_type_ == "straight"){
@@ -141,14 +144,11 @@ void Follower::updateNavigationGoal(){
       geometry_msgs::PoseStamped current_target_pose = complete_person_trajectory_.poses[path_target_pointer_];
       geometry_msgs::PoseStamped next_target_pose = complete_person_trajectory_.poses[path_target_pointer_+1];
       
-      current_target_pose_publisher_.publish(current_target_pose);
-      next_target_pose_publisher_.publish(next_target_pose);
-
       double distance_to_current_target = std::sqrt(std::pow(current_robot_position_.pose.position.x-current_target_pose.pose.position.x, 2) + std::pow(current_robot_position_.pose.position.y-current_target_pose.pose.position.y, 2));
-      bool goal_reached = distance_to_current_target < 0.25;
+      bool goal_reached = distance_to_current_target < 1.0;
 
 
-      if(goal_reached){
+      if(goal_reached || path_target_pointer_ == 0){
         // When the current target pose becomes close enough, set the next as goal
 
         ROS_INFO("Navigation goal reached.");
@@ -157,8 +157,13 @@ void Follower::updateNavigationGoal(){
 
         goal_.header = filtered_person_position_.header;
         goal_.pose = next_target_pose.pose;
-        goal_.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(next_target_pose.pose.position.y - current_target_pose.pose.position.y , next_target_pose.pose.position.x - current_target_pose.pose.position.x));
+        goal_.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(current_target_pose.pose.position.y - next_target_pose.pose.position.y , current_target_pose.pose.position.x - next_target_pose.pose.position.x));
 
+        current_target_pose_publisher_.publish(goal_);
+
+        next_target_pose.pose.orientation = goal_.pose.orientation;
+
+        next_target_pose_publisher_.publish(next_target_pose);
 
       }
 
@@ -281,10 +286,10 @@ void Follower::loop(){
     // TODO if navigation stack unable to complete goal, update navigation stack
 
     // Otherwise, update navigation goal and head position. 
+    updateNavigationGoal();
+    updateHeadPosition();
     if(new_person_position_received_) {
       
-      updateNavigationGoal();
-      updateHeadPosition();
 
       new_person_position_received_ = false;
 
