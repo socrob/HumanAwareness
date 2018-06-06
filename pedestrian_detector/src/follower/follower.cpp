@@ -21,6 +21,7 @@ Follower::Follower(): nh_(ros::NodeHandle()), new_person_position_received_(fals
   pub_head_rot_ = nh_.advertise<std_msgs::UInt8MultiArray>("/cmd_head", 2);
   
   trajectory_publisher_ = nh_.advertise<nav_msgs::Path>("person_trajectory", 2);
+  residual_trajectory_publisher_ = nh_.advertise<nav_msgs::Path>("residual_person_trajectory", 2);
 
   current_target_pose_publisher_ = nh_.advertise<geometry_msgs::PoseStamped>("current_navigation_target", 2);
   next_target_pose_publisher_ = nh_.advertise<geometry_msgs::PoseStamped>("next_navigation_target", 2);
@@ -141,9 +142,23 @@ void Follower::updateNavigationGoal(){
 
     if(!path_finished){
 
-      geometry_msgs::PoseStamped current_target_pose = complete_person_trajectory_.poses[path_target_pointer_];
-      geometry_msgs::PoseStamped next_target_pose = complete_person_trajectory_.poses[path_target_pointer_+1];
+      geometry_msgs::PoseStamped& current_target_pose = complete_person_trajectory_.poses[path_target_pointer_];
+      geometry_msgs::PoseStamped& next_target_pose = complete_person_trajectory_.poses[path_target_pointer_+1];
       
+      // The residual treajectory is always the part of the trajectory from the first pose that may be set as target, to the last pose of the complete trajectory.
+      // Once a pose of the residual trajectory is set as target, the poses precedent to that one should not be part of the residual anymore.
+      nav_msgs::Path residual_person_trajectory;
+      
+      std::vector<geometry_msgs::PoseStamped>::const_iterator current_target_pose_iter = complete_person_trajectory_.poses.begin() + path_target_pointer_;
+      std::vector<geometry_msgs::PoseStamped>::const_iterator last_iter = complete_person_trajectory_.poses.begin() + complete_person_trajectory_.poses.size()-1;
+      
+      
+      
+      residual_person_trajectory.poses = std::vector<geometry_msgs::PoseStamped>(current_target_pose_iter, last_iter);
+      residual_person_trajectory.header = complete_person_trajectory_.header;
+
+      residual_trajectory_publisher_.publish(residual_person_trajectory);
+
       double distance_to_current_target = std::sqrt(std::pow(current_robot_position_.pose.position.x-current_target_pose.pose.position.x, 2) + std::pow(current_robot_position_.pose.position.y-current_target_pose.pose.position.y, 2));
       bool goal_reached = distance_to_current_target < 1.0;
 

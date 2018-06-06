@@ -54,6 +54,7 @@ class Follower
   ros::Publisher pub_pose_in_;
   ros::Publisher pub_head_rot_;
   ros::Publisher trajectory_publisher_;
+  ros::Publisher residual_trajectory_publisher_;
   ros::Publisher current_target_pose_publisher_;
   ros::Publisher next_target_pose_publisher_;
 
