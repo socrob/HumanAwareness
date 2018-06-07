@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   interactive_markers
   nav_msgs
+  scout_msgs
   pcl_conversions
   pcl_ros
   vizzy_msgs

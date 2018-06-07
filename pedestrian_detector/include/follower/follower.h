@@ -25,6 +25,7 @@
 // Actions
 #include <actionlib/client/simple_action_client.h>
 #include <move_base_msgs/MoveBaseAction.h>
+#include <scout_msgs/NavigationByTargetAction.h>
 
 
 class Follower
@@ -66,6 +67,11 @@ class Follower
   ros::ServiceClient plan_client_;
   ros::ServiceClient clear_client_;
   
+  // Action Clients
+  actionlib::SimpleActionClient<scout_msgs::NavigationByTargetAction> nav_action_client_;//("/navigation_by_target", true);
+
+
+
   // Main following state
   bool following_enabled_; // TODO enable/disable with event topics
 
