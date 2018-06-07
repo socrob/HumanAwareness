@@ -1,3 +1,7 @@
+
+add_compile_options(-std=c++11)
+
+
 file(GLOB detector_folder_source src/detector/*.cpp)
 file(GLOB detector_folder_header include/detector/*.hpp)
 file(GLOB common_folder_source src/*.cpp)

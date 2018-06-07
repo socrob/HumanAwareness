@@ -69,25 +69,32 @@ class Follower
   // Main following state
   bool following_enabled_; // TODO enable/disable with event topics
 
+
+  // Configuration
+
   // Type of navigation. Set by default through parameters. Can be updated dinamically to implement different navigation stategies.
   // TODO change dinamically (state machine?)
   std::string navigation_type_, navigation_stack_;
+  double path_minimum_distance_;
 
   // flag used to know when we have received a callback
   bool new_person_position_received_;
 
-  // Position of the person from the Bayesian filter
+  // Position of the person from the Bayesian filter, and of the person in base_link.
   geometry_msgs::PointStamped filtered_person_position_;
-
-  // Position of the person in base_link.
   geometry_msgs::PointStamped relative_person_position_;
   
   // Person's path, from the beginning untill the last received person's filtered position
   std::vector<geometry_msgs::PointStamped> complete_person_path_;
   nav_msgs::Path complete_person_trajectory_;
+  geometry_msgs::PoseStamped  current_target_pose_;
+
+  // The residual trajectory is always the part of the trajectory from the first pose that may be set as target, to the last pose of the complete trajectory.
+  // Once a pose of the residual trajectory is set as target, the poses precedent to that one should not be part of the residual anymore.
+  nav_msgs::Path residual_trajectory_;
 
   // Position in the person's path used as target for navigation
-  long unsigned int path_target_pointer_;
+  long unsigned int current_pose_pointer_;
   
   // for storing the arguments that will be read from param server
   std::vector<std::string> script_arguments_;

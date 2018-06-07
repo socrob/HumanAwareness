@@ -41,6 +41,7 @@
     <group if="$(arg follower)">
     <node pkg="pedestrian_detector" type="follower" name="follower" output="screen">
       <remap from="twist_topic" to="/cmd_vel_prio_medium"/>
+      <remap from="/move_base_simple/goal" to="/null/move_base_simple/goal"/>
       <rosparam file="$(find pedestrian_detector)/config/follower_params_$(arg following_planner_mode).yaml" command="load"/>
     </node>
     </group>
