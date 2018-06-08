@@ -11,4 +11,6 @@ control_type: planner
 rate: 10.0
 default_navigation_type: path_following # recovery, straight, path_following
 default_navigation_stack: 2d_nav # move_base, 2d_nav
-path_minimum_distance: 0.5
+path_minimum_distance: 0.1
+target_pose_minimum_distance: 0.75
+person_pose_minimum_distance: 0.45

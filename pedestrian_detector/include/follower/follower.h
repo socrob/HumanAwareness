@@ -37,9 +37,17 @@ class Follower
   void setup();
   void loop();
 
+  void eventInCallback(const std_msgs::String& msg);
   void filteredPersonPositionCallback(const geometry_msgs::PointStampedConstPtr& msg);
   void robotPoseCallBack(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
-  
+
+  void doneCb(const actionlib::SimpleClientGoalState& state, const scout_msgs::NavigationByTargetResultConstPtr& result);
+  void activeCb();
+  void feedbackCb(const scout_msgs::NavigationByTargetFeedbackConstPtr& feedback);
+
+
+
+  void initialiseNavigationGoal();
   void updateNavigationGoal();
   void updateHeadPosition();
 
@@ -60,6 +68,7 @@ class Follower
   ros::Publisher next_target_pose_publisher_;
 
   // Subscribers
+  ros::Subscriber event_in_subscriber_;
   ros::Subscriber filtered_person_position_subscriber_;
   ros::Subscriber robot_position_subscriber_;
 
@@ -74,6 +83,7 @@ class Follower
 
   // Main following state
   bool following_enabled_; // TODO enable/disable with event topics
+  bool initialise_navigation_; // TODO enable/disable with event topics
 
 
   // Configuration
@@ -82,6 +92,8 @@ class Follower
   // TODO change dinamically (state machine?)
   std::string navigation_type_, navigation_stack_;
   double path_minimum_distance_;
+  double target_pose_minimum_distance_;
+  double person_pose_minimum_distance_;
 
   // flag used to know when we have received a callback
   bool new_person_position_received_;
@@ -115,7 +127,8 @@ class Follower
   tf::TransformListener* listener_;
 
   bool isthereaPath(geometry_msgs::PoseStamped goal);
-  
+  void broadcastPoseToTF(geometry_msgs::PoseStamped p, std::string target_frame);
+
   //std::vector<geometry_msgs::PoseStamped> personPoses_;
 
   geometry_msgs::PoseStamped keptPose_;

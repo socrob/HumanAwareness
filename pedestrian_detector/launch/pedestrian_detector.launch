@@ -15,6 +15,13 @@
     
     <include file="$(find bayes_people_tracker)/launch/people_tracker_people_following.launch"/>
 
+    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="hector_trajectory_server" output="screen">
+      <param name="target_frame_name" type="string" value="/map" />
+      <param name="source_frame_name" type="string" value="/base_link" />
+      <param name="trajectory_update_rate" type="double" value="10" />
+      <param name="trajectory_publish_rate" type="double" value="10" />
+    </node>
+
     <node pkg="pedestrian_detector" type="detector" name="detector">
       <remap from="image_in" to="$(arg image_in)"/>
       <remap from="image_out" to="$(arg image_out)"/>
