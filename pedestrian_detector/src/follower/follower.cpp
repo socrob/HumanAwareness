@@ -82,8 +82,11 @@ void Follower::filteredPersonPositionCallback(const geometry_msgs::PointStampedC
 
   ROS_DEBUG("Absolute person position in frame [%s]: %2.3f, %2.3f",  filtered_person_position_.header.frame_id.c_str(), filtered_person_position_.point.x, filtered_person_position_.point.y);
 
-  if(filtered_person_position_.header.frame_id != "/map")
+  std::string f = filtered_person_position_.header.frame_id;
+  if(f != "/map" && f != "map" && f != "/odom" && f != "odom"){
     ROS_WARN("Person position not in fixed frame");
+    ROS_INFO("Absolute person position in frame [%s]: %2.3f, %2.3f",  filtered_person_position_.header.frame_id.c_str(), filtered_person_position_.point.x, filtered_person_position_.point.y);
+  }
   
   // Obtain the person's position in the robot's frame
   try{
@@ -192,31 +195,31 @@ void Follower::initialiseNavigationGoal(){
 
 
   if (navigation_stack_ == "2d_nav"){
-        ROS_INFO("Sending goal.");
-        // send a goal to the action
-        scout_msgs::NavigationByTargetGoal goal;
-        goal.target_frame = "/people_following/current_target_pose";
-        goal.heading_frame = "/people_following/current_target_pose";
-        goal.proximity = person_pose_minimum_distance_;
-        goal.follow_target = true;
+    ROS_INFO("Sending goal.");
+    // send a goal to the action
+    scout_msgs::NavigationByTargetGoal goal;
+    goal.target_frame = "/people_following/current_target_pose";
+    goal.heading_frame = "/people_following/current_target_pose";
+    goal.proximity = person_pose_minimum_distance_;
+    goal.follow_target = true;
 
-        nav_action_client_.sendGoal(goal, 
-              boost::bind(&Follower::doneCb, this, _1, _2), 
-              boost::bind(&Follower::activeCb, this), 
-              boost::bind(&Follower::feedbackCb, this, _1));
+    nav_action_client_.sendGoal(goal, 
+          boost::bind(&Follower::doneCb, this, _1, _2), 
+          boost::bind(&Follower::activeCb, this), 
+          boost::bind(&Follower::feedbackCb, this, _1));
 
-        //wait for the action to return
-        bool finished_before_timeout = nav_action_client_.waitForResult(ros::Duration(5.0));
+    //wait for the action to return
+    bool finished_before_timeout = nav_action_client_.waitForResult(ros::Duration(5.0));
 
-        if (finished_before_timeout)
-        {
-          actionlib::SimpleClientGoalState state = nav_action_client_.getState();
-          ROS_INFO("Action finished: %s",state.toString().c_str());
-        }
-        else{
-          ROS_INFO("Action did not finish before the time out.");
-        }
-      }
+    if (finished_before_timeout)
+    {
+      actionlib::SimpleClientGoalState state = nav_action_client_.getState();
+      ROS_INFO("Action finished: %s",state.toString().c_str());
+    }
+    else{
+      ROS_INFO("Action did not finish before the time out.");
+    }
+  }
 
 
 }

@@ -1,0 +1,28 @@
+#!/usr/bin/python
+
+import rospy
+from darknet_ros_py.msg import RecognizedObjectArray
+from pedestrian_detector.msg import DetectionList, BoundingBox
+
+DESIRED_CLASS = 'person'
+detection_msg = DetectionList()
+pub = None
+
+def callback(msg):
+    if len(msg.objects) == 0: return
+    detection_msg.headsVector = [ BoundingBox(x=obj.bounding_box.x_offset,
+                                              y=obj.bounding_box.y_offset,
+                                              width=obj.bounding_box.width,
+                                              height=obj.bounding_box.height)
+                                  for obj in msg.objects if obj.class_name == DESIRED_CLASS ]
+    if pub is not None:
+        pub.publish(detection_msg)
+
+if __name__=='__main__':
+    rospy.init_node('yolo_to_people_detections_converter', anonymous=False)
+
+    pub = rospy.Publisher('people_detections', DetectionList, queue_size=10)
+    rospy.Subscriber('yolo_detections', RecognizedObjectArray, callback=callback, queue_size=10)
+
+    rospy.loginfo('Started yolo to people detections converter')
+    rospy.spin()

@@ -28,7 +28,7 @@ sensor_msgs::PointCloud2 pcloud;
 tf::TransformListener* listener;
 double kid_height = 0.4;
 bool startfollow = false;
-double radiusd = 2.5;
+double radiusd = 25;
 ros::Subscriber bb_sub;
 ros::Subscriber pcl_sub;
 ros::NodeHandle* n;
@@ -248,7 +248,7 @@ int main(int argc, char **argv){
   ros::ServiceServer insightservice = n->advertiseService("/PersonInFront", insightserviceCallback);
   ros::ServiceServer followservice = n->advertiseService("/FollowNow", followserviceCallback);
   ros::ServiceServer radiusservice = n->advertiseService("/DetectRadius", changeradiusCallback);
-  ros::Publisher mapeople_pub = n->advertise<geometry_msgs::PoseArray>("mapeople", 1);
+  ros::Publisher mapeople_pub = n->advertise<geometry_msgs::PoseArray>("upper_body_detector_poses", 1);
 
   ros::Timer timer = n->createTimer(ros::Duration(0.1), timerCallback);
 
