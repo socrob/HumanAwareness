@@ -45,9 +45,8 @@ class Follower
   void activeCb();
   void feedbackCb(const scout_msgs::NavigationByTargetFeedbackConstPtr& feedback);
 
-
-
   void initialiseNavigationGoal();
+  void updateTrajectory();
   void updateNavigationGoal();
   void updateHeadPosition();
 
@@ -96,7 +95,8 @@ class Follower
   double person_pose_minimum_distance_;
 
   // flag used to know when we have received a callback
-  bool new_person_position_received_;
+  bool update_trajectory_;
+  bool update_navigation_goal_;
 
   // Position of the person from the Bayesian filter, and of the person in base_link.
   geometry_msgs::PointStamped filtered_person_position_;

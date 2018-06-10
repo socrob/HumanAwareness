@@ -43,40 +43,52 @@ void timerCallback(const ros::TimerEvent& event){
   std::cout <<"radius: " << radiusd << std::endl;
 }
 pcl::PointXYZ findpclpoint(pcl::PointCloud<pcl::PointXYZ> cloud, geometry_msgs::Point crowdpoint){
+
   pcl::PointXYZ rgbdpoint, aux_pxyz;
   geometry_msgs::Point aux_p;
   int count=0;
   bool notav;
+
   rgbdpoint.x = 0;
   rgbdpoint.y = 0;
   rgbdpoint.z = 0;
+
   for(int i = -10; i < 11; i++){
     for(int j = -10; j < 11; j++){
+
       aux_p.x = crowdpoint.x+i;
       aux_p.y = crowdpoint.y+j;
       notav = false;
+
       if(aux_p.x >= 0 && aux_p.x <= 640 && aux_p.y >=0 && aux_p.y <= 480){
-	try{
-	  aux_pxyz = cloud.at(aux_p.x,aux_p.y);
-	}catch(std::exception& e){
-	  ROS_ERROR("POINT NOT AVAILABLE");
-	  notav = true;
-	}
-	if(std::isnan(aux_pxyz.x) == false && std::isnan(aux_pxyz.y) == false && std::isnan(aux_pxyz.z) == false){
-	  rgbdpoint.x = rgbdpoint.x + aux_pxyz.x;
-	  rgbdpoint.y = rgbdpoint.y + aux_pxyz.y;
-	  rgbdpoint.z = rgbdpoint.z + aux_pxyz.z;
-	  if(not notav){
-	    count++;
-	  }
-	}
+        
+        try{
+          aux_pxyz = cloud.at(aux_p.x,aux_p.y);
+        }catch(std::exception& e){
+          ROS_ERROR("POINT NOT AVAILABLE");
+          notav = true;
+        }
+
+        if(std::isnan(aux_pxyz.x) == false && std::isnan(aux_pxyz.y) == false && std::isnan(aux_pxyz.z) == false){
+          rgbdpoint.x = rgbdpoint.x + aux_pxyz.x;
+          rgbdpoint.y = rgbdpoint.y + aux_pxyz.y;
+          rgbdpoint.z = rgbdpoint.z + aux_pxyz.z;
+          if(not notav){
+            count++;
+          }
+        }
+
       }
+      
     }
   }
+
   rgbdpoint.x = rgbdpoint.x/count;
   rgbdpoint.y = rgbdpoint.y/count;
   rgbdpoint.z = rgbdpoint.z/count;
+
   return rgbdpoint;
+
 }
 
 void pclCallback(const sensor_msgs::PointCloud2ConstPtr& pcloudmsg){

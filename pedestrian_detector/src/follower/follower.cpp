@@ -7,7 +7,7 @@ double euclidean_distance_2d(geometry_msgs::Point p1, geometry_msgs::Point p2) {
   return std::sqrt(std::pow(p2.x-p1.x, 2) + std::pow(p2.y-p1.y, 2));
 }
 
-Follower::Follower(): nh_(ros::NodeHandle()), nav_action_client_("/navigation_by_target", true), new_person_position_received_(false){
+Follower::Follower(): nh_(ros::NodeHandle()), nav_action_client_("/navigation_by_target", true), update_trajectory_(false), update_navigation_goal_(false){
 
   ros::NodeHandle private_nh = ros::NodeHandle("~");
 
@@ -59,7 +59,6 @@ Follower::Follower(): nh_(ros::NodeHandle()), nav_action_client_("/navigation_by
 
 Follower::~Follower(){
   filtered_person_position_subscriber_.shutdown();
-  //pub_event_in_.shutdown();
   pub_pose_in_.shutdown();
 }
 
@@ -72,33 +71,101 @@ void Follower::eventInCallback(const std_msgs::String& msg){
   }
 }
 
-
-
 void Follower::filteredPersonPositionCallback(const geometry_msgs::PointStampedConstPtr& msg){
-  
-
-  // Save the position as point, in its original frame
   filtered_person_position_ = *msg;
+  update_trajectory_ = true;
+  update_navigation_goal_ = true;
+}
+
+void Follower::robotPoseCallBack(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg){
+  current_robot_position_.header = msg->header;
+  current_robot_position_.pose = msg->pose.pose;
+  update_navigation_goal_ = true;
+}
+
+// Called once when the goal completes
+void Follower::doneCb(const actionlib::SimpleClientGoalState& state,
+            const scout_msgs::NavigationByTargetResultConstPtr& result){
+  ROS_INFO("ACTION DONE  Finished in state [%s]", state.toString().c_str());
+  // ROS_INFO("Answer: %i", *result);
+  // ros::shutdown();
+}
+
+// Called once when the goal becomes active
+void Follower::activeCb(){
+  ROS_INFO("ACTION ACTIVE  Goal just went active");
+}
+
+// Called every time feedback is received for the goal
+void Follower::feedbackCb(const scout_msgs::NavigationByTargetFeedbackConstPtr& feedback){
+  ROS_INFO("ACTION FEEDBACK");
+}
+
+void Follower::broadcastPoseToTF(geometry_msgs::PoseStamped p, std::string target_frame){
+  static tf::TransformBroadcaster br;
+  tf::Transform transform;
+  transform.setOrigin( tf::Vector3(p.pose.position.x, p.pose.position.y, p.pose.position.z) );
+  transform.setRotation(tf::Quaternion(p.pose.orientation.x, p.pose.orientation.y, p.pose.orientation.z, p.pose.orientation.w));
+  br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), p.header.frame_id, target_frame));
+}
+
+
+
+
+void Follower::initialiseNavigationGoal(){
+
+  ROS_INFO("INIT NAVIGATION");
+
+  if (navigation_stack_ == "2d_nav"){
+    ROS_INFO("Sending goal.");
+    // send a goal to the action
+    scout_msgs::NavigationByTargetGoal goal;
+    goal.target_frame = "/people_following/current_target_pose";
+    goal.heading_frame = "/people_following/current_target_pose";
+    goal.proximity = person_pose_minimum_distance_;
+    goal.follow_target = true;
+
+    nav_action_client_.sendGoal(goal, 
+          boost::bind(&Follower::doneCb, this, _1, _2), 
+          boost::bind(&Follower::activeCb, this), 
+          boost::bind(&Follower::feedbackCb, this, _1));
+
+    //wait for the action to return
+    bool finished_before_timeout = nav_action_client_.waitForResult(ros::Duration(5.0));
+
+    if (finished_before_timeout)
+    {
+      actionlib::SimpleClientGoalState state = nav_action_client_.getState();
+      ROS_INFO("Action finished: %s", state.toString().c_str());
+    }
+    else{
+      ROS_INFO("Action did not finish before the time out.");
+    }
+  }
+
+
+}
+
+void Follower::updateTrajectory(){
 
   ROS_DEBUG("Absolute person position in frame [%s]: %2.3f, %2.3f",  filtered_person_position_.header.frame_id.c_str(), filtered_person_position_.point.x, filtered_person_position_.point.y);
 
   std::string f = filtered_person_position_.header.frame_id;
   if(f != "/map" && f != "map" && f != "/odom" && f != "odom"){
     ROS_WARN("Person position not in fixed frame");
-    ROS_INFO("Absolute person position in frame [%s]: %2.3f, %2.3f",  filtered_person_position_.header.frame_id.c_str(), filtered_person_position_.point.x, filtered_person_position_.point.y);
+    ROS_WARN("Absolute person position in frame [%s]: %2.3f, %2.3f",  filtered_person_position_.header.frame_id.c_str(), filtered_person_position_.point.x, filtered_person_position_.point.y);
   }
   
   // Obtain the person's position in the robot's frame
   try{
     listener_->transformPoint("/base_link", filtered_person_position_, relative_person_position_);
+    ROS_DEBUG("Relative person position in frame [%s]: %2.3f, %2.3f",  relative_person_position_.header.frame_id.c_str(), relative_person_position_.point.x, relative_person_position_.point.y);  
   }catch(tf2::ExtrapolationException &ex){
     ROS_DEBUG("%s",ex.what());
   }catch (tf::TransformException &ex) {
     ROS_DEBUG("%s",ex.what());
   }
-
-  ROS_DEBUG("Relative person position in frame [%s]: %2.3f, %2.3f",  relative_person_position_.header.frame_id.c_str(), relative_person_position_.point.x, relative_person_position_.point.y);  
-
+  
   // Update path and trajectory only when the person moves some distance
 
   double path_distance;
@@ -106,7 +173,6 @@ void Follower::filteredPersonPositionCallback(const geometry_msgs::PointStampedC
 
   if(complete_person_path_.size() >= 1){
     geometry_msgs::PointStamped last_path_position = complete_person_path_[complete_person_path_.size()-1];
-    // path_empty = false;
     path_distance = std::sqrt(std::pow(filtered_person_position_.point.x-last_path_position.point.x, 2) + std::pow(filtered_person_position_.point.y-last_path_position.point.y, 2));
   }
 
@@ -141,182 +207,73 @@ void Follower::filteredPersonPositionCallback(const geometry_msgs::PointStampedC
 
   }
 
-  new_person_position_received_ = true;
-
 }
-
-void Follower::robotPoseCallBack(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg){
-  current_robot_position_.header = msg->header;
-  current_robot_position_.pose = msg->pose.pose;
-}
-
-void Follower::broadcastPoseToTF(geometry_msgs::PoseStamped p, std::string target_frame){
-  static tf::TransformBroadcaster br;
-  tf::Transform transform;
-  transform.setOrigin( tf::Vector3(p.pose.position.x, p.pose.position.y, p.pose.position.z) );
-  transform.setRotation(tf::Quaternion(p.pose.orientation.x, p.pose.orientation.y, p.pose.orientation.z, p.pose.orientation.w));
-  br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), p.header.frame_id, target_frame));
-}
-
-
-
-
-
-
-// Called once when the goal completes
-void Follower::doneCb(const actionlib::SimpleClientGoalState& state,
-            const scout_msgs::NavigationByTargetResultConstPtr& result)
-{
-  ROS_INFO("ACTION DONE  Finished in state [%s]", state.toString().c_str());
-  // ROS_INFO("Answer: %i", *result);
-  // ros::shutdown();
-}
-
-// Called once when the goal becomes active
-void Follower::activeCb()
-{
-  ROS_INFO("ACTION ACTIVE  Goal just went active");
-}
-
-// Called every time feedback is received for the goal
-void Follower::feedbackCb(const scout_msgs::NavigationByTargetFeedbackConstPtr& feedback)
-{
-  ROS_INFO("ACTION FEEDBACK");
-}
-
-
-
-
-
-
-void Follower::initialiseNavigationGoal(){
-
-  ROS_INFO("INIT NAVIGATION");
-
-
-  if (navigation_stack_ == "2d_nav"){
-    ROS_INFO("Sending goal.");
-    // send a goal to the action
-    scout_msgs::NavigationByTargetGoal goal;
-    goal.target_frame = "/people_following/current_target_pose";
-    goal.heading_frame = "/people_following/current_target_pose";
-    goal.proximity = person_pose_minimum_distance_;
-    goal.follow_target = true;
-
-    nav_action_client_.sendGoal(goal, 
-          boost::bind(&Follower::doneCb, this, _1, _2), 
-          boost::bind(&Follower::activeCb, this), 
-          boost::bind(&Follower::feedbackCb, this, _1));
-
-    //wait for the action to return
-    bool finished_before_timeout = nav_action_client_.waitForResult(ros::Duration(5.0));
-
-    if (finished_before_timeout)
-    {
-      actionlib::SimpleClientGoalState state = nav_action_client_.getState();
-      ROS_INFO("Action finished: %s",state.toString().c_str());
-    }
-    else{
-      ROS_INFO("Action did not finish before the time out.");
-    }
-  }
-
-
-}
-
-
-
-
 
 void Follower::updateNavigationGoal(){
+  
+  // Current_target_pose specify the pose currently selected as goal for navigation.
 
-  double x = relative_person_position_.point.x;
-  double y = relative_person_position_.point.y;
-  double z = relative_person_position_.point.z;
+  // The residual trajectory starts from current target and ends with the last position of the complete trajectory
+  // Update the residual trajectory
+  long unsigned int complete_trajectory_size = complete_person_trajectory_.poses.size();
 
-  // Direct navigation
-  if(navigation_type_ == "straight"){
-    double d = 0.6;
-    double final_x = d*x;
-    double final_y = d*y;
-
-    goal_.header = filtered_person_position_.header;
-    goal_.pose.position.x = final_x;
-    goal_.pose.position.y = final_y;
-    goal_.pose.position.z = z;
-    goal_.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(final_y,final_x));
-    
-  } else if(navigation_type_ == "path_following"){
-    
-    ROS_DEBUG("NAVIGATION: path_following");
-
-    // Current_target_pose specify the pose currently selected as goal for navigation.
-
-    // The residual trajectory is always between the current target and the latest position in the trajectory
-    // Update the residual trajectory
-    long unsigned int complete_trajectory_size = complete_person_trajectory_.poses.size();
-    // std::vector<geometry_msgs::PoseStamped>::iterator last_iter = complete_person_trajectory_.poses.back(); 
+  if(complete_trajectory_size == 0){
+    ROS_DEBUG("EMPTY PATH");
+  } else {
     
 
-    if(complete_trajectory_size == 0){
-      ROS_DEBUG("EMPTY PATH");
-    } else {
-      
-
-      // update current target pose and residual trajectory
-      if(current_pose_pointer_ >= complete_person_trajectory_.poses.size()){
-        ROS_ERROR("current_pose_pointer_ >= complete_person_trajectory_.poses.size()");
-        return;
-      }
-
-      current_target_pose_ = complete_person_trajectory_.poses[current_pose_pointer_];
-      residual_trajectory_.poses = std::vector<geometry_msgs::PoseStamped>(complete_person_trajectory_.poses.begin()+current_pose_pointer_, complete_person_trajectory_.poses.end());
-      residual_trajectory_.header = complete_person_trajectory_.header;
-      residual_trajectory_publisher_.publish(residual_trajectory_);
-
-
-      // TODO get rid of integer pointer, use adressess
-      // for(auto residual_pose : residual_trajectory_.poses)
-
-      geometry_msgs::PoseStamped new_target_pose = current_target_pose_;
-      double current_target_pose_distance = euclidean_distance_2d(current_robot_position_.pose.position, current_target_pose_.pose.position);
-      bool closer_target_found = false;
-      unsigned long int new_current_pose_pointer;
-
-      for(long unsigned int residual_pose_index = current_pose_pointer_; residual_pose_index < complete_person_trajectory_.poses.size(); residual_pose_index++){
-        auto residual_pose = complete_person_trajectory_.poses[residual_pose_index];
-        double residual_pose_distance = euclidean_distance_2d(current_robot_position_.pose.position, residual_pose.pose.position);
-        if(residual_pose_distance < current_target_pose_distance){
-          closer_target_found = true;
-          new_target_pose = residual_pose;
-          new_current_pose_pointer = residual_pose_index;
-        }
-      }
-
-      if(closer_target_found){
-
-
-        current_target_pose_ = new_target_pose;
-        current_pose_pointer_ = new_current_pose_pointer;
-        
-        goal_.header = filtered_person_position_.header;
-        goal_.pose = current_target_pose_.pose;
-        // TODO goal_.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(-current_target_pose.pose.position.y + next_target_pose.pose.position.y , -current_target_pose.pose.position.x + next_target_pose.pose.position.x));
-        if (navigation_stack_ == "2d_nav_topic") pub_pose_in_.publish(goal_);
-
-        ROS_INFO("new trajectory navigation target: %lu\\%lu\t", current_pose_pointer_, complete_person_trajectory_.poses.size());
-
-      }else{
-        // Skip the next residual pose if it is close enough, unless it is the last
-        if(current_target_pose_distance < target_pose_minimum_distance_){
-          if(current_pose_pointer_ < complete_person_trajectory_.poses.size()-1) current_pose_pointer_++;
-        }
-      }
-
-      current_target_pose_publisher_.publish(current_target_pose_);
-      broadcastPoseToTF(current_target_pose_, "/people_following/current_target_pose");
-
+    // update current target pose and residual trajectory
+    if(current_pose_pointer_ >= complete_person_trajectory_.poses.size()){
+      ROS_ERROR("current_pose_pointer_ >= complete_person_trajectory_.poses.size()");
+      return;
     }
+
+    current_target_pose_ = complete_person_trajectory_.poses[current_pose_pointer_];
+    residual_trajectory_.poses = std::vector<geometry_msgs::PoseStamped>(complete_person_trajectory_.poses.begin()+current_pose_pointer_, complete_person_trajectory_.poses.end());
+    residual_trajectory_.header = complete_person_trajectory_.header;
+    residual_trajectory_publisher_.publish(residual_trajectory_);
+
+
+    // TODO get rid of integer pointer, use adressess
+    // for(auto residual_pose : residual_trajectory_.poses)
+
+    geometry_msgs::PoseStamped new_target_pose = current_target_pose_;
+    double current_target_pose_distance = euclidean_distance_2d(current_robot_position_.pose.position, current_target_pose_.pose.position);
+    bool closer_target_found = false;
+    unsigned long int new_current_pose_pointer;
+
+    for(long unsigned int residual_pose_index = current_pose_pointer_; residual_pose_index < complete_person_trajectory_.poses.size(); residual_pose_index++){
+      auto residual_pose = complete_person_trajectory_.poses[residual_pose_index];
+      double residual_pose_distance = euclidean_distance_2d(current_robot_position_.pose.position, residual_pose.pose.position);
+      if(residual_pose_distance < current_target_pose_distance){
+        closer_target_found = true;
+        new_target_pose = residual_pose;
+        new_current_pose_pointer = residual_pose_index;
+      }
+    }
+
+    if(closer_target_found){
+
+
+      current_target_pose_ = new_target_pose;
+      current_pose_pointer_ = new_current_pose_pointer;
+      
+      goal_.header = filtered_person_position_.header;
+      goal_.pose = current_target_pose_.pose;
+      // TODO goal_.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(-current_target_pose.pose.position.y + next_target_pose.pose.position.y , -current_target_pose.pose.position.x + next_target_pose.pose.position.x));
+      if (navigation_stack_ == "2d_nav_topic") pub_pose_in_.publish(goal_);
+
+      ROS_INFO("new trajectory navigation target: %lu\\%lu\t", current_pose_pointer_, complete_person_trajectory_.poses.size());
+
+    }else{
+      // Skip the next residual pose if it is close enough, unless it is the last
+      if(current_target_pose_distance < target_pose_minimum_distance_){
+        if(current_pose_pointer_ < complete_person_trajectory_.poses.size()-1) current_pose_pointer_++;
+      }
+    }
+
+    current_target_pose_publisher_.publish(current_target_pose_);
+    broadcastPoseToTF(current_target_pose_, "/people_following/current_target_pose");
 
   }
 
@@ -398,7 +355,7 @@ void Follower::setup(){
 
 void Follower::loop(){
 
-  // if(follower.new_person_position_received_){
+  // if(follower.update_trajectory_){
   //   follower.clearCostmaps(); // TODO removed, check if needed?
   // }
 
@@ -407,17 +364,23 @@ void Follower::loop(){
     // TODO if person is not tracked (how long?) switch to recovery navigation
     // TODO if navigation stack unable to complete goal, update navigation stack
 
-    // Otherwise, update navigation goal and head position. 
-    updateNavigationGoal();
-    updateHeadPosition();
-    if(new_person_position_received_) {
-      new_person_position_received_ = false;
+    if(update_trajectory_) {
+      updateTrajectory();
+      update_trajectory_ = false;
     }
+    
+    if(update_navigation_goal_){
+      updateNavigationGoal();
+      update_navigation_goal_ = false;
+    }
+
+    updateHeadPosition();
 
     if(initialise_navigation_){
       initialiseNavigationGoal();
       initialise_navigation_ = false;
     }
+
 
   } else {
     // TODO if navigation in progress, stop navigation

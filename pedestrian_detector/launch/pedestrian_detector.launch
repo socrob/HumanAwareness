@@ -13,10 +13,11 @@
   <arg name="follower" default="true" />
   <arg name="tracker" default="true" />
   
-  <arg name="fmm" default="true" />
-  <arg name="following_planner_mode" default="global_map" />    
+  <arg name="launch_navigation_stack" default="false" />
+  <arg name="visualisation" default="true" />
+  <arg name="following_planner_mode" default="global_map" /> <!-- TODO remove -->
 
-  <include file="$(find mbot_2dnav)/ros/launch/2dnav_people_following.launch" if="$(arg fmm)"/>
+  <include file="$(find mbot_2dnav)/ros/launch/2dnav_people_following.launch" if="$(arg launch_navigation_stack)"/>
   
   <group ns="$(arg namespace)">
   
@@ -24,7 +25,7 @@
 
     <include file="$(find bayes_people_tracker)/launch/people_tracker_people_following.launch" if="$(arg tracker)"/>
     
-    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="hector_trajectory_server" output="screen">
+    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="hector_trajectory_server" output="screen" if="$(arg visualisation)">
       <param name="target_frame_name" type="string" value="/map" />
       <param name="source_frame_name" type="string" value="/base_link" />
       <param name="trajectory_update_rate" type="double" value="10" />
@@ -50,7 +51,7 @@
     <node pkg="pedestrian_detector" type="follower" name="follower" output="screen">
       
       <remap from="twist_topic" to="/cmd_vel_prio_medium"/>
-      <remap from="/move_base_simple/goal" to="/null/move_base_simple/goal"/>
+      <!--<remap from="/move_base_simple/goal" to="/null/move_base_simple/goal"/>-->
       <rosparam file="$(find pedestrian_detector)/config/follower_params_$(arg following_planner_mode).yaml" command="load"/>
       
     </node>
