@@ -187,17 +187,18 @@ void Follower::updateTrajectory(){
   if(path_empty || path_distance >= path_minimum_distance_){
 
     // Update the person's trajectory (that contains poses instead of points)
-    geometry_msgs::PoseStamped poi_pose, prev_poi_pose;
+    geometry_msgs::PoseStamped poi_pose;
     
     poi_pose.header = poi_position_.header;
     poi_pose.pose.position = poi_position_.point;
-      
+    poi_pose.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(-robot_pose_.pose.position.y + poi_position_.point.y, -robot_pose_.pose.position.x + poi_position_.point.x));
+
     poi_trajectory_.header = poi_position_.header;
     poi_trajectory_.poses.push_back(poi_pose);
 
     // set the pose of the previous Person Of Interest so that it points to the last one (poi_pose)
     if(poi_trajectory_.poses.size() >= 2) {
-      prev_poi_pose = poi_trajectory_.poses[poi_trajectory_.poses.size() - 2];
+    geometry_msgs::PoseStamped& prev_poi_pose = poi_trajectory_.poses[poi_trajectory_.poses.size() - 2];
       prev_poi_pose.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(poi_position_.point.y - prev_poi_pose.pose.position.y, poi_position_.point.x - prev_poi_pose.pose.position.x));
     }
 
@@ -214,89 +215,88 @@ void Follower::updateNavigationGoal(){
 
   // The residual trajectory starts from current target and ends with the last position of the complete trajectory
   // Update the residual trajectory
-  long unsigned int complete_trajectory_size = poi_trajectory_.poses.size();
+  long unsigned int poi_trajectory_size = poi_trajectory_.poses.size();
 
-  if(complete_trajectory_size == 0){
+  if(poi_trajectory_size == 0){
     ROS_DEBUG("EMPTY PATH");
-  } else {
-    
-
-    // update current target pose and residual trajectory
-    if(current_pose_pointer_ >= poi_trajectory_.poses.size()){
-      ROS_ERROR("current_pose_pointer_ >= poi_trajectory_.poses.size()");
-      return;
-    }
-
-    target_pose_ = poi_trajectory_.poses[current_pose_pointer_];
-    residual_trajectory_.poses = std::vector<geometry_msgs::PoseStamped>(poi_trajectory_.poses.begin()+current_pose_pointer_, poi_trajectory_.poses.end());
-    residual_trajectory_.header = poi_trajectory_.header;
-    residual_trajectory_publisher_.publish(residual_trajectory_);
-
-
-    // TODO get rid of integer pointer, use adressess
-    // for(auto residual_pose : residual_trajectory_.poses)
-
-    geometry_msgs::PoseStamped new_target_pose = target_pose_;
-    double target_pose_distance = euclidean_distance_2d(robot_pose_.pose.position, target_pose_.pose.position);
-    bool closer_target_found = false;
-    unsigned long int new_current_pose_pointer;
-
-    for(long unsigned int residual_pose_index = current_pose_pointer_; residual_pose_index < poi_trajectory_.poses.size(); residual_pose_index++){
-      auto residual_pose = poi_trajectory_.poses[residual_pose_index];
-      double residual_pose_distance = euclidean_distance_2d(robot_pose_.pose.position, residual_pose.pose.position);
-      if(residual_pose_distance < target_pose_distance){
-        closer_target_found = true;
-        new_target_pose = residual_pose;
-        new_current_pose_pointer = residual_pose_index;
-      }
-    }
-
-    if(closer_target_found){
-
-      geometry_msgs::PoseStamped goal;
-
-      target_pose_ = new_target_pose;
-      current_pose_pointer_ = new_current_pose_pointer;
-      
-      goal.header = poi_position_.header;
-      goal.pose = target_pose_.pose;
-      
-      if (navigation_stack_ == "2d_nav_topic") {
-        
-        navigation_goal_publisher_.publish(goal);
-
-      } else if(navigation_stack_ == "move_base"){
-        
-        move_base_msgs::MoveBaseGoal move_base_goal;
-        move_base_goal.target_pose = goal;
-
-        ROS_INFO("Sending move_base_goal");
-        move_base_goal_action_client_.sendGoal(move_base_goal);
-
-        ROS_INFO("Waiting move base result");
-        move_base_goal_action_client_.waitForResult();
-
-        if(move_base_goal_action_client_.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
-          ROS_INFO("SimpleClientGoalState::SUCCEEDED");
-        } else {
-          ROS_WARN("SimpleClientGoalState FAILED");
-        }
-        
-      }
-
-      ROS_INFO("new trajectory navigation target: %lu\\%lu\t", current_pose_pointer_, poi_trajectory_.poses.size());
-
-    }else{
-      // Skip the next residual pose if it is close enough, unless it is the last
-      if(target_pose_distance < target_pose_minimum_distance_){
-        if(current_pose_pointer_ < poi_trajectory_.poses.size()-1) current_pose_pointer_++;
-      }
-    }
-
-    target_pose_publisher_.publish(target_pose_);
-    broadcastPoseToTF(target_pose_, "/people_following/current_target_pose");
-
+    return;
   }
+  
+
+  // update current target pose and residual trajectory
+  if(current_pose_pointer_ >= poi_trajectory_.poses.size()){
+    ROS_ERROR("current_pose_pointer_ >= poi_trajectory_.poses.size()");
+    return;
+  }
+
+  target_pose_ = poi_trajectory_.poses[current_pose_pointer_];
+  residual_trajectory_.poses = std::vector<geometry_msgs::PoseStamped>(poi_trajectory_.poses.begin()+current_pose_pointer_, poi_trajectory_.poses.end());
+  residual_trajectory_.header = poi_trajectory_.header;
+  residual_trajectory_publisher_.publish(residual_trajectory_);
+
+
+  // TODO get rid of integer pointer, use adressess
+  // for(auto residual_pose : residual_trajectory_.poses)
+
+  geometry_msgs::PoseStamped new_target_pose = target_pose_;
+  double target_pose_distance = euclidean_distance_2d(robot_pose_.pose.position, target_pose_.pose.position);
+  bool closer_target_found = false;
+  unsigned long int new_current_pose_pointer;
+
+  for(long unsigned int residual_pose_index = current_pose_pointer_; residual_pose_index < poi_trajectory_.poses.size(); residual_pose_index++){
+    auto residual_pose = poi_trajectory_.poses[residual_pose_index];
+    double residual_pose_distance = euclidean_distance_2d(robot_pose_.pose.position, residual_pose.pose.position);
+    if(residual_pose_distance < target_pose_distance){
+      closer_target_found = true;
+      new_target_pose = residual_pose;
+      new_current_pose_pointer = residual_pose_index;
+    }
+  }
+
+  if(closer_target_found){
+
+    geometry_msgs::PoseStamped goal;
+
+    target_pose_ = new_target_pose;
+    current_pose_pointer_ = new_current_pose_pointer;
+    
+    goal.header = poi_position_.header;
+    goal.pose = target_pose_.pose;
+    
+    if (navigation_stack_ == "2d_nav_topic") {
+      
+      navigation_goal_publisher_.publish(goal);
+
+    } else if(navigation_stack_ == "move_base"){
+      
+      move_base_msgs::MoveBaseGoal move_base_goal;
+      move_base_goal.target_pose = goal;
+
+      ROS_INFO("Sending move_base_goal");
+      move_base_goal_action_client_.sendGoal(move_base_goal);
+
+      ROS_INFO("Waiting move base result");
+      move_base_goal_action_client_.waitForResult();
+
+      if(move_base_goal_action_client_.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
+        ROS_INFO("SimpleClientGoalState::SUCCEEDED");
+      } else {
+        ROS_WARN("SimpleClientGoalState FAILED");
+      }
+      
+    }
+
+    ROS_INFO("new trajectory navigation target: %lu\\%lu\t", current_pose_pointer_, poi_trajectory_.poses.size());
+
+  }else{
+    // Skip the next residual pose if it is close enough, unless it is the last
+    if(target_pose_distance < target_pose_minimum_distance_){
+      if(current_pose_pointer_ < poi_trajectory_.poses.size()-1) current_pose_pointer_++;
+    }
+  }
+
+  target_pose_publisher_.publish(target_pose_);
+  broadcastPoseToTF(target_pose_, "/people_following/current_target_pose");
 
 }
 

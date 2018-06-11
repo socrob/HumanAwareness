@@ -12,14 +12,41 @@
   
   <arg name="follower" default="true" />
   <arg name="tracker" default="true" />
-  
+
   <arg name="launch_navigation_stack" default="false" />
   <arg name="visualisation" default="true" />
   <arg name="following_planner_mode" default="global_map" /> <!-- TODO remove -->
 
+
+  <arg name="navigation_stack"              default="nav_2d" />
+  <arg name="navigation_type"               default="path_following" />
+  <arg name="person_pose_minimum_distance"  default="0.0" />
+  <arg name="target_pose_minimum_distance"  default="0.75" />
+  <arg name="path_minimum_distance"         default="0.25" />
+
+  <node pkg="rosservice" type="rosservice" name="rosservice_follow_now_node" args="call --wait /FollowNow 'start: true' " />
+
+
   <include file="$(find mbot_2dnav)/ros/launch/2dnav_people_following.launch" if="$(arg launch_navigation_stack)"/>
   
   <group ns="$(arg namespace)">
+
+    <group if="$(arg follower)">
+      <node pkg="pedestrian_detector" type="follower" name="follower" output="screen">
+        
+        <rosparam file="$(find pedestrian_detector)/config/follower_params_$(arg following_planner_mode).yaml" command="load"/>
+
+        <param name="default_navigation_stack"      type="string"   value="$(arg navigation_stack)" />
+        <param name="default_navigation_type"       type="string"   value="$(arg navigation_type)" />
+        <param name="person_pose_minimum_distance"  type="double"   value="$(arg person_pose_minimum_distance)" />
+        <param name="target_pose_minimum_distance"  type="double"   value="$(arg target_pose_minimum_distance)" />
+        <param name="path_minimum_distance"         type="double"   value="$(arg path_minimum_distance)" />
+
+        <remap from="twist_topic" to="/cmd_vel_prio_medium"/>
+        <!--<remap from="/move_base_simple/goal" to="/null/move_base_simple/goal"/>-->
+        
+      </node>
+    </group>
   
     <node pkg="pedestrian_detector" type="yolo_converter" name="yolo_to_people_detections_converter" args="yolo_detections:=/detection_result people_detections:=detections" output="screen"/>
 
@@ -33,29 +60,12 @@
       <remap from="trajectory" to="robot_trajectory" />
     </node>
 
-    <!--node pkg="pedestrian_detector" type="detector" name="detector">
-      <remap from="image_in" to="$(arg image_in)"/>
-      <remap from="image_out" to="$(arg image_out)"/>
-      <param name="detector_type" type="str" value="$(arg detector_type)"/>
-      <param name="camera" type="str" value="$(arg camera)"/>
-      <rosparam file="$(find pedestrian_detector)/config/detector_params.yaml" command="load"/>
-    </node-->
-
     <node pkg="pedestrian_detector" type="centralp" name="before_tracker">
     </node>
     
     <node pkg="pedestrian_detector" type="after" name="after_tracker">
     </node>
 
-    <group if="$(arg follower)">
-    <node pkg="pedestrian_detector" type="follower" name="follower" output="screen">
-      
-      <remap from="twist_topic" to="/cmd_vel_prio_medium"/>
-      <!--<remap from="/move_base_simple/goal" to="/null/move_base_simple/goal"/>-->
-      <rosparam file="$(find pedestrian_detector)/config/follower_params_$(arg following_planner_mode).yaml" command="load"/>
-      
-    </node>
-    </group>
     
   </group>
 </launch>
