@@ -22,6 +22,9 @@ Follower::Follower():
   if(!private_nh.param<std::string>("default_navigation_stack", navigation_stack_, "move_base"))
     ROS_WARN("Parameter default_navigation_stack not set. Using default value.");
 
+  if(!private_nh.param<std::string>("fixed_frame", fixed_frame_, "/odom"))
+    ROS_WARN("Parameter fixed_frame not set. Using default value.");
+  
   if(!private_nh.param<double>("path_minimum_distance", path_minimum_distance_, 0.5))
     ROS_WARN("Parameter path_minimum_distance not set. Using default value.");
   
@@ -31,19 +34,24 @@ Follower::Follower():
   if(!private_nh.param<double>("person_pose_minimum_distance", person_pose_minimum_distance_, 0.5))
     ROS_WARN("Parameter person_pose_minimum_distance not set. Using default value.");
   
+  if(!private_nh.param<double>("default_head_camera_position", head_camera_position_, 1.86))
+    ROS_WARN("Parameter default_head_camera_position not set. Using default value.");
+  
   // subscriptions
   event_in_subscriber_ = nh_.subscribe("follower/event_in", 1, &Follower::eventInCallback, this);
-  poi_position_subscriber_ = nh_.subscribe("person_position", 1, &Follower::filteredPersonPositionCallback, this);
+  poi_position_subscriber_ = nh_.subscribe("person_position", 1, &Follower::PoiPositionCallback, this);
   robot_position_subscriber_ = nh_.subscribe("/amcl_pose", 1, &Follower::robotPoseCallBack, this);
 
   navigation_goal_publisher_ = nh_.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 2);
   head_position_publisher_ = nh_.advertise<std_msgs::UInt8MultiArray>("/cmd_head", 2);
+  head_camera_position_publisher_ = nh_.advertise<std_msgs::Float64>("/head_camera_position_controller/command", 1);
   
   trajectory_publisher_ = nh_.advertise<nav_msgs::Path>("person_trajectory", 2);
   residual_trajectory_publisher_ = nh_.advertise<nav_msgs::Path>("residual_trajectory", 2);
 
   target_pose_publisher_ = nh_.advertise<geometry_msgs::PoseStamped>("current_navigation_target", 2);
   next_target_pose_publisher_ = nh_.advertise<geometry_msgs::PoseStamped>("next_navigation_target", 2);
+  
   
   // querying parameters from parameter server TODO
   getParams();
@@ -75,16 +83,32 @@ void Follower::eventInCallback(const std_msgs::String& msg){
   }
 }
 
-void Follower::filteredPersonPositionCallback(const geometry_msgs::PointStampedConstPtr& msg){
+void Follower::PoiPositionCallback(const geometry_msgs::PointStampedConstPtr& msg){
   poi_position_ = *msg;
   update_trajectory_ = true;
   update_navigation_goal_ = true;
 }
 
 void Follower::robotPoseCallBack(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg){
-  robot_pose_.header = msg->header;
-  robot_pose_.pose = msg->pose.pose;
+  ROS_INFO("robotPoseCallBack");
+  geometry_msgs::PoseStamped robot_original_frame, asdasd;
+
+  robot_original_frame.header = msg->header;
+  robot_original_frame.pose = msg->pose.pose;
+
+  try{
+    listener_->transformPose(fixed_frame_, robot_original_frame, asdasd);
+  }catch(tf2::ExtrapolationException &ex){
+    ROS_WARN("%s",ex.what());
+  } catch (tf::TransformException &ex) {
+    ROS_WARN("%s",ex.what());
+  }
+
+  robot_pose_ = asdasd;
+  
   update_navigation_goal_ = true;
+  ROS_INFO("robotPoseCallBack");
+
 }
 
 // Called once when the goal completes
@@ -135,15 +159,13 @@ void Follower::initialiseNavigationGoal(){
           boost::bind(&Follower::feedbackCb, this, _1));
 
     //wait for the action to return
-    bool finished_before_timeout = nav_action_client_.waitForResult(ros::Duration(5.0));
+    bool finished_before_timeout = nav_action_client_.waitForResult(ros::Duration(2.0));
 
-    if (finished_before_timeout)
-    {
+    if (finished_before_timeout){
       actionlib::SimpleClientGoalState state = nav_action_client_.getState();
       ROS_INFO("Action finished: %s", state.toString().c_str());
-    }
-    else{
-      ROS_INFO("Action did not finish before the time out.");
+    } else {
+      ROS_INFO("Action did not finish before the time out (2.0 sec).");
     }
   }
 
@@ -155,7 +177,7 @@ void Follower::updateTrajectory(){
   ROS_DEBUG("Absolute person position in frame [%s]: %2.3f, %2.3f",  poi_position_.header.frame_id.c_str(), poi_position_.point.x, poi_position_.point.y);
 
   std::string f = poi_position_.header.frame_id;
-  if(f != "/map" && f != "map" && f != "/odom" && f != "odom"){
+  if(f != fixed_frame_){
     ROS_WARN("Person position not in fixed frame");
     ROS_WARN("Absolute person position in frame [%s]: %2.3f, %2.3f",  poi_position_.header.frame_id.c_str(), poi_position_.point.x, poi_position_.point.y);
   }
@@ -198,7 +220,7 @@ void Follower::updateTrajectory(){
 
     // set the pose of the previous Person Of Interest so that it points to the last one (poi_pose)
     if(poi_trajectory_.poses.size() >= 2) {
-    geometry_msgs::PoseStamped& prev_poi_pose = poi_trajectory_.poses[poi_trajectory_.poses.size() - 2];
+      geometry_msgs::PoseStamped& prev_poi_pose = poi_trajectory_.poses[poi_trajectory_.poses.size() - 2];
       prev_poi_pose.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(poi_position_.point.y - prev_poi_pose.pose.position.y, poi_position_.point.x - prev_poi_pose.pose.position.x));
     }
 
@@ -211,7 +233,7 @@ void Follower::updateTrajectory(){
 
 void Follower::updateNavigationGoal(){
   
-  // Current_target_pose specify the pose currently selected as goal for navigation.
+  // target_pose_ specify the pose currently selected as goal for navigation.
 
   // The residual trajectory starts from current target and ends with the last position of the complete trajectory
   // Update the residual trajectory
@@ -222,7 +244,6 @@ void Follower::updateNavigationGoal(){
     return;
   }
   
-
   // update current target pose and residual trajectory
   if(current_pose_pointer_ >= poi_trajectory_.poses.size()){
     ROS_ERROR("current_pose_pointer_ >= poi_trajectory_.poses.size()");
@@ -233,12 +254,11 @@ void Follower::updateNavigationGoal(){
   residual_trajectory_.poses = std::vector<geometry_msgs::PoseStamped>(poi_trajectory_.poses.begin()+current_pose_pointer_, poi_trajectory_.poses.end());
   residual_trajectory_.header = poi_trajectory_.header;
   residual_trajectory_publisher_.publish(residual_trajectory_);
-
-
   // TODO get rid of integer pointer, use adressess
   // for(auto residual_pose : residual_trajectory_.poses)
 
   geometry_msgs::PoseStamped new_target_pose = target_pose_;
+  next_target_pose_publisher_.publish(robot_pose_);
   double target_pose_distance = euclidean_distance_2d(robot_pose_.pose.position, target_pose_.pose.position);
   bool closer_target_found = false;
   unsigned long int new_current_pose_pointer;
@@ -263,7 +283,7 @@ void Follower::updateNavigationGoal(){
     goal.header = poi_position_.header;
     goal.pose = target_pose_.pose;
     
-    if (navigation_stack_ == "2d_nav_topic") {
+    if (navigation_stack_ == "move_base_simple") {
       
       navigation_goal_publisher_.publish(goal);
 
@@ -310,7 +330,7 @@ void Follower::updateHeadPosition(){
   try{ 
     listener_->lookupTransform("/base_link", "/head_link", ros::Time(0), transform);
   }catch (tf::TransformException &ex) {
-    ROS_ERROR("%s",ex.what());
+    ROS_DEBUG("%s",ex.what());
   }
   tf::Matrix3x3(transform.getBasis()).getRPY(roll, pitch, yaw);
 
@@ -362,10 +382,18 @@ void Follower::clearCostmaps(){
   }
 }
 
-void Follower::setup(){
+void Follower::reset(){
 
+  ROS_INFO("RESET");
   ROS_INFO("navigation_type: %s", navigation_type_.c_str());
   ROS_INFO("navigation_stack: %s", navigation_stack_.c_str());
+
+  // TODO check for all action clients and cancel goals if needed
+
+  std_msgs::Float64 head_camera_position_msg;
+  head_camera_position_msg.data = head_camera_position_;
+  head_camera_position_publisher_.publish(head_camera_position_msg);
+  ROS_INFO("Head camera position set to %f", head_camera_position_msg.data);
 
   if(navigation_stack_ == "2d_nav"){
     ROS_INFO("Waiting for the 2d_nav action server to become available");
@@ -378,17 +406,12 @@ void Follower::setup(){
       ROS_WARN("Still waiting for the move_base action server to become available");
     }
   }
-
   ROS_INFO("Action server started.");
   
 }
 
 
 void Follower::loop(){
-
-  // if(follower.update_trajectory_){
-  //   follower.clearCostmaps(); // TODO removed, check if needed?
-  // }
 
   if(following_enabled_){ // TODO enable/disable with event topics (and safety timers?)
 
@@ -420,21 +443,19 @@ void Follower::loop(){
 
 
 int main(int argc, char** argv){
-  ros::init(argc, argv, "Follower");
+  ros::init(argc, argv, "follower");
   
   Follower follower;
 
   double node_frequency = 50;
   ros::Rate loop_rate(node_frequency);
 
-  follower.setup();
+  follower.reset();
 
   while(ros::ok()){
-    
     ros::spinOnce();
     follower.loop();
     loop_rate.sleep();
-
   }
   
   return 0;

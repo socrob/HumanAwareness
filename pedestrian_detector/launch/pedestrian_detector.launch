@@ -13,19 +13,22 @@
   <arg name="follower" default="true" />
   <arg name="tracker" default="true" />
 
-  <arg name="launch_navigation_stack" default="false" />
+  <arg name="always_follow" default="false" /> <!-- TODO remove -->
+  <arg name="launch_navigation_stack" default="true" /> <!-- TODO remove -->
   <arg name="visualisation" default="true" />
   <arg name="following_planner_mode" default="global_map" /> <!-- TODO remove -->
 
-
   <arg name="navigation_stack"              default="nav_2d" />
   <arg name="navigation_type"               default="path_following" />
-  <arg name="person_pose_minimum_distance"  default="0.0" />
+  <arg name="move_base_simple"              default="false" />
+
+  <arg name="people_tracking_target_frame"  default="/odom" />
+  <arg name="person_pose_minimum_distance"  default="0.25" />
   <arg name="target_pose_minimum_distance"  default="0.75" />
-  <arg name="path_minimum_distance"         default="0.25" />
+  <arg name="path_minimum_distance"         default="0.15" />
 
-  <node pkg="rosservice" type="rosservice" name="rosservice_follow_now_node" args="call --wait /FollowNow 'start: true' " />
 
+  <node pkg="rosservice" type="rosservice" name="rosservice_follow_now_node" args="call --wait /FollowNow 'start: true' " if="$(arg always_follow)" />
 
   <include file="$(find mbot_2dnav)/ros/launch/2dnav_people_following.launch" if="$(arg launch_navigation_stack)"/>
   
@@ -36,6 +39,7 @@
         
         <rosparam file="$(find pedestrian_detector)/config/follower_params_$(arg following_planner_mode).yaml" command="load"/>
 
+        <param name="fixed_frame"                   type="string"   value="$(arg people_tracking_target_frame)" />
         <param name="default_navigation_stack"      type="string"   value="$(arg navigation_stack)" />
         <param name="default_navigation_type"       type="string"   value="$(arg navigation_type)" />
         <param name="person_pose_minimum_distance"  type="double"   value="$(arg person_pose_minimum_distance)" />
@@ -43,14 +47,16 @@
         <param name="path_minimum_distance"         type="double"   value="$(arg path_minimum_distance)" />
 
         <remap from="twist_topic" to="/cmd_vel_prio_medium"/>
-        <!--<remap from="/move_base_simple/goal" to="/null/move_base_simple/goal"/>-->
+        <remap from="/move_base_simple/goal" to="/null/move_base_simple/goal" unless="$(arg move_base_simple)" />
         
       </node>
     </group>
   
     <node pkg="pedestrian_detector" type="yolo_converter" name="yolo_to_people_detections_converter" args="yolo_detections:=/detection_result people_detections:=detections" output="screen"/>
 
-    <include file="$(find bayes_people_tracker)/launch/people_tracker_people_following.launch" if="$(arg tracker)"/>
+    <include file="$(find bayes_people_tracker)/launch/people_tracker_people_following.launch" if="$(arg tracker)">
+      <arg name="target_frame" value="$(arg people_tracking_target_frame)" />
+    </include>
     
     <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="hector_trajectory_server" output="screen" if="$(arg visualisation)">
       <param name="target_frame_name" type="string" value="/map" />

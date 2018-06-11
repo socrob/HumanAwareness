@@ -14,7 +14,7 @@ def callback(msg):
                                               y=obj.bounding_box.y_offset,
                                               width=obj.bounding_box.width,
                                               height=obj.bounding_box.height)
-                                  for obj in msg.objects.objects if obj.class_name == DESIRED_CLASS ]
+                                  for obj in msg.objects.objects if obj.class_name == DESIRED_CLASS and obj.confidence >= 0.5 ]
     if pub is not None:
         pub.publish(detection_msg)
 

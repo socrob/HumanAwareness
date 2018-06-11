@@ -28,7 +28,7 @@ sensor_msgs::PointCloud2 pcloud;
 tf::TransformListener* listener;
 double kid_height = 0.4;
 bool startfollow = false;
-double radiusd = 25;
+double radiusd = 3.0;
 ros::Subscriber bb_sub;
 ros::Subscriber pcl_sub;
 ros::NodeHandle* n;

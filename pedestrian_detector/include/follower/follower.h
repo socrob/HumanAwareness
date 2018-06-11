@@ -11,6 +11,7 @@
 
 // Messages
 #include <std_msgs/String.h>
+#include <std_msgs/Float64.h>
 #include <std_msgs/UInt8MultiArray.h>
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -34,11 +35,11 @@ class Follower
   Follower(); //constructor
   ~Follower(); //distructor
   
-  void setup();
+  void reset();
   void loop();
 
   void eventInCallback(const std_msgs::String& msg);
-  void filteredPersonPositionCallback(const geometry_msgs::PointStampedConstPtr& msg);
+  void PoiPositionCallback(const geometry_msgs::PointStampedConstPtr& msg);
   void robotPoseCallBack(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
 
   void doneCb(const actionlib::SimpleClientGoalState& state, const scout_msgs::NavigationByTargetResultConstPtr& result);
@@ -64,6 +65,7 @@ class Follower
   ros::Publisher residual_trajectory_publisher_;
   ros::Publisher target_pose_publisher_;
   ros::Publisher next_target_pose_publisher_;
+  ros::Publisher head_camera_position_publisher_;
 
   // Subscribers
   ros::Subscriber event_in_subscriber_;
@@ -89,10 +91,11 @@ class Follower
   // Configuration
   // Type of navigation. Set by default through parameters.
   std::string navigation_type_, navigation_stack_;
+  std::string fixed_frame_;
   double path_minimum_distance_;
   double target_pose_minimum_distance_;
   double person_pose_minimum_distance_;
-
+  double head_camera_position_;
 
   // Position of the person from the Bayesian filter, and of the person in base_link.
   geometry_msgs::PoseStamped robot_pose_;
