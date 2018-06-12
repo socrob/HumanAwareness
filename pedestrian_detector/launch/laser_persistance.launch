@@ -41,7 +41,7 @@
 
     <node pkg="pedestrian_detector" type="follower" name="follower" output="screen" respawn="true" if="$(arg follower)" >
       
-      <rosparam file="$(find pedestrian_detector)/config/follower.yaml" command="load"/>
+      <rosparam file="$(find pedestrian_detector)/config/follower.yaml" command="load" />
 
       <param name="fixed_frame"                   type="string"   value="$(arg fixed_frame)" />
       <param name="default_navigation_stack"      type="string"   value="$(arg navigation_stack)" />

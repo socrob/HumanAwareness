@@ -47,6 +47,7 @@ class Follower
   void feedbackCb(const scout_msgs::NavigationByTargetFeedbackConstPtr& feedback);
 
   void initialiseNavigationGoal();
+  void stopNavigation();
   void updateTrajectory();
   void updateNavigationGoal();
   void updateHeadPosition();
@@ -77,7 +78,7 @@ class Follower
   ros::ServiceClient move_base_clear_costmap_service_client_;
   
   // Action Clients
-  actionlib::SimpleActionClient<scout_msgs::NavigationByTargetAction> nav_action_client_;
+  actionlib::SimpleActionClient<scout_msgs::NavigationByTargetAction> rod_action_client_;
   actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> move_base_goal_action_client_;
 
 
@@ -86,7 +87,7 @@ class Follower
   bool initialise_navigation_;
   bool update_trajectory_;
   bool update_navigation_goal_;
-
+  bool stop_navigation_;
 
   // Configuration
   // Type of navigation. Set by default through parameters.

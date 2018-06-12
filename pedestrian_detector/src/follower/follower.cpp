@@ -9,7 +9,7 @@ double euclidean_distance_2d(geometry_msgs::Point p1, geometry_msgs::Point p2) {
 
 Follower::Follower(): 
     nh_(ros::NodeHandle()),
-    nav_action_client_("/navigation_by_target", true),
+    rod_action_client_("/navigation_by_target", true),
     move_base_goal_action_client_("/move_base", true),
     update_trajectory_(false),
     update_navigation_goal_(false){
@@ -65,6 +65,7 @@ Follower::Follower():
   // States
   following_enabled_ = true; // TODO false
   initialise_navigation_ = false;
+  stop_navigation_ = false;
   current_pose_pointer_ = 0;
 
 }
@@ -78,9 +79,19 @@ void Follower::getParams(){
 }
 
 void Follower::eventInCallback(const std_msgs::String& msg){
+  
   if(msg.data == "e_start"){
-    following_enabled_ = true;
+      ROS_INFO("Starting following");
+      following_enabled_ = true;
+      initialise_navigation_ = true;
   }
+
+  if(msg.data == "e_stop"){
+      ROS_INFO("Stopping following");
+      following_enabled_ = false;
+      stop_navigation_ = true;
+  }
+
 }
 
 void Follower::PoiPositionCallback(const geometry_msgs::PointStampedConstPtr& msg){
@@ -90,24 +101,21 @@ void Follower::PoiPositionCallback(const geometry_msgs::PointStampedConstPtr& ms
 }
 
 void Follower::robotPoseCallBack(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg){
-  ROS_INFO("robotPoseCallBack");
-  geometry_msgs::PoseStamped robot_original_frame, asdasd;
+  ROS_DEBUG("robotPoseCallBack");
+  geometry_msgs::PoseStamped robot_original_frame;
 
   robot_original_frame.header = msg->header;
   robot_original_frame.pose = msg->pose.pose;
 
   try{
-    listener_->transformPose(fixed_frame_, robot_original_frame, asdasd);
+    listener_->transformPose(fixed_frame_, robot_original_frame, robot_pose_);
   }catch(tf2::ExtrapolationException &ex){
     ROS_WARN("%s",ex.what());
   } catch (tf::TransformException &ex) {
     ROS_WARN("%s",ex.what());
   }
-
-  robot_pose_ = asdasd;
   
   update_navigation_goal_ = true;
-  ROS_INFO("robotPoseCallBack");
 
 }
 
@@ -137,38 +145,52 @@ void Follower::broadcastPoseToTF(geometry_msgs::PoseStamped p, std::string targe
   br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), p.header.frame_id, target_frame));
 }
 
-
-
-
 void Follower::initialiseNavigationGoal(){
 
   ROS_INFO("INIT NAVIGATION");
 
-  if (navigation_stack_ == "2d_nav"){
-    ROS_INFO("Sending goal.");
-    // send a goal to the action
+  if (navigation_stack_ == "rod"){
+    ROS_INFO("Initialising the goal for navigation [rod]");
+    
+    // Send a goal to the action
     scout_msgs::NavigationByTargetGoal goal;
     goal.target_frame = "/people_following/current_target_pose";
     goal.heading_frame = "/people_following/current_target_pose";
     goal.proximity = person_pose_minimum_distance_;
     goal.follow_target = true;
 
-    nav_action_client_.sendGoal(goal, 
+    rod_action_client_.sendGoal(goal, 
           boost::bind(&Follower::doneCb, this, _1, _2), 
           boost::bind(&Follower::activeCb, this), 
           boost::bind(&Follower::feedbackCb, this, _1));
 
-    //wait for the action to return
-    bool finished_before_timeout = nav_action_client_.waitForResult(ros::Duration(2.0));
+    // Wait for the action to return
+    bool finished_before_timeout = rod_action_client_.waitForResult(ros::Duration(2.0));
 
     if (finished_before_timeout){
-      actionlib::SimpleClientGoalState state = nav_action_client_.getState();
+      actionlib::SimpleClientGoalState state = rod_action_client_.getState();
       ROS_INFO("Action finished: %s", state.toString().c_str());
     } else {
       ROS_INFO("Action did not finish before the time out (2.0 sec).");
     }
   }
+}
 
+void Follower::stopNavigation(){
+
+  ROS_INFO("Stopping navigation for stack [%s]", navigation_stack_.c_str());
+
+  if (navigation_stack_ == "move_base_simple") {
+    navigation_goal_publisher_.publish(robot_pose_);
+  }
+  
+  if (navigation_stack_ == "move_base") {
+    move_base_goal_action_client_.cancelGoal();
+  }
+
+  if (navigation_stack_ == "rod") {
+    rod_action_client_.cancelGoal();
+  }
 
 }
 
@@ -202,7 +224,7 @@ void Follower::updateTrajectory(){
     path_distance = euclidean_distance_2d(poi_position_.point, last_trajectory_position.pose.position);
   }
 
-  if(path_empty && following_enabled_ && !initialise_navigation_){
+  if(path_empty && following_enabled_ && !stop_navigation_ && !initialise_navigation_){
     initialise_navigation_ = true;
   }
 
@@ -395,10 +417,10 @@ void Follower::reset(){
   head_camera_position_publisher_.publish(head_camera_position_msg);
   ROS_INFO("Head camera position set to %f", head_camera_position_msg.data);
 
-  if(navigation_stack_ == "2d_nav"){
-    ROS_INFO("Waiting for the 2d_nav action server to become available");
-    while(ros::ok() && !nav_action_client_.waitForServer(ros::Duration(2.0))){
-      ROS_WARN("Still waiting for the 2d_nav action server to become available");
+  if(navigation_stack_ == "rod"){
+    ROS_INFO("Waiting for the rod action server to become available");
+    while(ros::ok() && !rod_action_client_.waitForServer(ros::Duration(2.0))){
+      ROS_WARN("Still waiting for the rod action server to become available");
     }
   } else if (navigation_stack_ == "move_base"){
     ROS_INFO("Waiting for the move_base action server to become available");
@@ -413,7 +435,12 @@ void Follower::reset(){
 
 void Follower::loop(){
 
-  if(following_enabled_){ // TODO enable/disable with event topics (and safety timers?)
+  if(stop_navigation_){
+    stopNavigation();
+    stop_navigation_ = false;
+  }
+
+  if(following_enabled_ && !stop_navigation_){
 
     // TODO if person is not tracked (how long?) switch to recovery navigation
     // TODO if navigation stack unable to complete goal, update navigation stack
@@ -435,10 +462,10 @@ void Follower::loop(){
       initialise_navigation_ = false;
     }
 
-
-  } else {
-    // TODO if navigation in progress, stop navigation
   }
+
+
+
 }
 
 
