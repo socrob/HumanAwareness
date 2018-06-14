@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- list of scan topics to combine -->
+  <arg name="scan_list" default='"/scan_front","/scan_rear"' />
+
+  <node pkg="mbot_scan_unifier" type="scan_unifier_node" name="scan_persistence_unifier" output="screen" respawn="true" >
+    <rosparam param="input_scans" subst_value="True">[$(arg scan_list)]</rosparam>
+    <param name="loop_rate" value="25.0"/>
+    <remap from="scan_unified" to="scan_persistent"/>
+  </node>
+  
+</launch>
+

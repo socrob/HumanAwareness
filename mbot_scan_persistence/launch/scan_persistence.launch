@@ -27,11 +27,11 @@
       
       <remap from="scan" to="scan_in_throttled" />
       <param name="max_scans" type="int" value="50" />
-      <param name="fixed_frame" type="string" value="map" />
+      <param name="fixed_frame" type="string" value="odom" />
       
     </node>
     
-    <!-- POINTCLOUD TO SCAN -->
+    <!-- ACCUMULATED POINTCLOUD TO SCAN -->
     <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan_left_node" output="screen" respawn="true" >
       
       <remap from="cloud_in" to="cloud_out" />
@@ -67,8 +67,8 @@
       <rosparam param="input_scans" subst_value="True">[$(arg scan_list)]</rosparam>
       <param name="loop_rate" value="40.0"/>
       <remap from="scan_unified" to="scan_combined_persistent"/>
-    </node>
  -->
+    </node>
     
   </group>
   
