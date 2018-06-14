@@ -1,0 +1,17 @@
+world_frame: map
+robot_frame: base_link
+minimum_distance: 1.2
+planner_activation_distance: 1.7
+minimum_planner_distance: 1.7
+distance_to_target: 1.5
+fixed_frame: odom
+kv: 0.2
+kalfa: 0.8
+control_type: planner
+rate: 10.0
+default_head_camera_position: 1.5
+default_navigation_type: path_following # recovery, straight, path_following
+default_navigation_stack: rod # move_base, rod
+path_minimum_distance: 0.5
+target_pose_minimum_distance: 1.5
+person_pose_minimum_distance: 1.5

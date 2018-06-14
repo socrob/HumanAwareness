@@ -1,5 +1,9 @@
-file(GLOB detector_folder_source src/detector/*.cpp)
-file(GLOB detector_folder_header include/detector/*.hpp)
+
+add_compile_options(-std=c++11)
+
+
+#file(GLOB detector_folder_source src/detector/*.cpp)
+#file(GLOB detector_folder_header include/detector/*.hpp)
 file(GLOB common_folder_source src/*.cpp)
 
 cmake_minimum_required(VERSION 2.8.3)
@@ -16,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   interactive_markers
   nav_msgs
+  scout_msgs
   pcl_conversions
   pcl_ros
   vizzy_msgs
@@ -58,14 +63,14 @@ catkin_package(
 include_directories(ros/include include)
 include_directories(${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
 
-source_group("Detector Source Files" FILES ${detector_folder_source})
-source_group("Detector Header Files" FILES ${detector_folder_header})
+#source_group("Detector Source Files" FILES ${detector_folder_source})
+#source_group("Detector Header Files" FILES ${detector_folder_header})
 source_group("Tracker Source Files" FILES ${tracker_folder_source})
 source_group("Tracker Header Files" FILES ${tracker_folder_header})
 
-add_executable(detector ${detector_folder_header} ${detector_folder_source} ${common_folder_source})
-target_link_libraries(detector ${catkin_LIBRARIES})
-add_dependencies(detector pedestrian_detector_generate_messages_cpp)
+#add_executable(detector ${detector_folder_header} ${detector_folder_source} ${common_folder_source})
+#target_link_libraries(detector ${catkin_LIBRARIES})
+#add_dependencies(detector pedestrian_detector_generate_messages_cpp)
 
 add_executable(centralp src/tracker/centralp.cpp)
 target_link_libraries(centralp ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
@@ -75,7 +80,7 @@ add_executable(after src/tracker/after.cpp)
 target_link_libraries(after ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 add_dependencies(after pedestrian_detector_generate_messages_cpp)
 
-add_executable(follower src/follower/follower.cpp)
+add_executable(follower src/follower/follower.cpp src/follower/RamerDouglasPeucker.cpp)
 target_link_libraries(follower ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 add_dependencies(follower pedestrian_detector_generate_messages_cpp)
 

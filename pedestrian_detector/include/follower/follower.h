@@ -1,22 +1,32 @@
 #ifndef PEDEST0RIAN_DETECTOR_FOLLOWER_H
 #define PEDESTRIAN_DETECTOR_FOLLOWER_H
 
-#include <ros/ros.h>
 #include <string>
 #include <vector>
-#include <std_msgs/String.h>
-#include "geometry_msgs/PoseStamped.h"
-#include "geometry_msgs/PoseWithCovarianceStamped.h"
-#include "geometry_msgs/PointStamped.h"
+
+#include <ros/ros.h>
+#include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
+
+// Messages
+#include <std_msgs/String.h>
+#include <std_msgs/Float64.h>
+#include <std_msgs/UInt8MultiArray.h>
+#include <nav_msgs/Path.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/Twist.h>
-#include <move_base_msgs/MoveBaseAction.h>
+
+// Services
+#include <std_srvs/Empty.h>
+#include <nav_msgs/GetPlan.h>
+
+// Actions
 #include <actionlib/client/simple_action_client.h>
-#include "std_msgs/UInt8MultiArray.h"
-#include "nav_msgs/GetPlan.h"
-#include "std_srvs/Empty.h"
-#include <tf/transform_broadcaster.h>
+#include <move_base_msgs/MoveBaseAction.h>
+#include <scout_msgs/NavigationByTargetAction.h>
 
 
 class Follower
@@ -24,80 +34,93 @@ class Follower
  public:
   Follower(); //constructor
   ~Follower(); //distructor
+  
+  void reset();
+  void loop();
 
-  // get parameters from param server
-  void getParams();
-
-  // callback for event_in recieved msg;
-  void eventInCallBack(const geometry_msgs::PointStampedConstPtr& msg);
-
-  // callback for event_in recieved msg;
+  void eventInCallback(const std_msgs::String& msg);
+  void PoiPositionCallback(const geometry_msgs::PointStampedConstPtr& msg);
   void robotPoseCallBack(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
-  
-  // ros node main loop
-  void update();
 
-  void update_head();
+  void doneCb(const actionlib::SimpleClientGoalState& state, const scout_msgs::NavigationByTargetResultConstPtr& result);
+  void activeCb();
+  void feedbackCb(const scout_msgs::NavigationByTargetFeedbackConstPtr& feedback);
 
+  void initialiseNavigationGoal();
+  void stopNavigation();
+  void updateTrajectory();
+  void updateNavigationGoal();
+  void updateHeadPosition();
+
+  void getParams();
   void clearCostmaps();
-  
-  // rotate head towards person
-  void rotateHead(geometry_msgs::Point p);
 
-  // flag used to know when we have received a callback
-  bool is_event_in_received_;  
   
- private:  
-  // ros related variables
+ private:
   ros::NodeHandle nh_;
-  ros::Publisher pub_pose_;
-  //ros::Publisher pub_event_in_;
-  ros::Publisher pub_pose_in_;
-  ros::Publisher pub_head_rot_;
-  ros::Subscriber sub_event_in_;
-  ros::Subscriber sub_robot_pose_;
-  ros::ServiceClient plan_client_;
-  ros::ServiceClient clear_client_;
-  
- 
 
-  // stores the msg in event_in callback
-  geometry_msgs::PointStamped event_in_msg_;
-  
-  // stores que msg that will be published on event_out topic
-  geometry_msgs::PoseStamped event_out_msg_;
-  
-  // for storing the arguments that will be read from param server
-  std::vector<std::string> script_arguments_;
+  // Publishers
+  ros::Publisher navigation_goal_publisher_;
+  ros::Publisher head_position_publisher_;
+  ros::Publisher trajectory_publisher_;
+  ros::Publisher residual_trajectory_publisher_;
+  ros::Publisher target_pose_publisher_;
+  ros::Publisher next_target_pose_publisher_;
+  ros::Publisher head_camera_position_publisher_;
 
-  // out topics
-  //std_msgs::String stop_;
-  //std_msgs::String start_;
+  // Subscribers
+  ros::Subscriber event_in_subscriber_;
+  ros::Subscriber poi_position_subscriber_;
+  ros::Subscriber robot_position_subscriber_;
 
-  // position of the head
-  double head_pos; 
+  // Service Clients
+  ros::ServiceClient move_base_plan_service_client_;
+  ros::ServiceClient move_base_clear_costmap_service_client_;
+  
+  // Action Clients
+  actionlib::SimpleActionClient<scout_msgs::NavigationByTargetAction> rod_action_client_;
+  actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> move_base_goal_action_client_;
+
+
+  // Main following state
+  bool following_enabled_; // TODO enable/disable with event topics
+  bool initialise_navigation_;
+  bool update_trajectory_;
+  bool update_navigation_goal_;
+  bool stop_navigation_;
+
+  // Configuration
+  // Type of navigation. Set by default through parameters.
+  std::string navigation_type_, navigation_stack_;
+  std::string fixed_frame_;
+  double path_minimum_distance_;
+  double target_pose_minimum_distance_;
+  double person_pose_minimum_distance_;
+  double head_camera_position_;
+
+  // Position of the person from the Bayesian filter, and of the person in base_link.
+  geometry_msgs::PoseStamped robot_pose_;
+  geometry_msgs::PointStamped poi_position_;
+  geometry_msgs::PointStamped relative_poi_position_;
+  
+  // Person's path, from the beginning untill the last received person's filtered position
+  // std::vector<geometry_msgs::PointStamped> complete_person_path_;
+  nav_msgs::Path poi_trajectory_;
+  geometry_msgs::PoseStamped  target_pose_;
+
+  // The residual trajectory is always the part of the trajectory from the first pose that may be set as target, to the last pose of the complete trajectory.
+  // Once a pose of the residual trajectory is set as target, the poses precedent to that one should not be part of the residual anymore.
+  nav_msgs::Path residual_trajectory_;
+
+  // Position in the person's path used as target for navigation (Temporary, change to better indexing of trajectories)
+  long unsigned int current_pose_pointer_;
 
   tf::TransformListener* listener_;
 
   bool isthereaPath(geometry_msgs::PoseStamped goal);
-  
-  //std::vector<geometry_msgs::PoseStamped> personPoses_;
+  void broadcastPoseToTF(geometry_msgs::PoseStamped p, std::string target_frame);
 
-  geometry_msgs::PoseStamped keptPose_;
-
-  geometry_msgs::Point keptPoint_;
-  
-  geometry_msgs::PoseStamped start_;
-
-  geometry_msgs::PoseStamped goal_;
-  geometry_msgs::Point pointGoal_;
-  
-  bool path_;
-
-  //TF stuff
-  static tf::TransformBroadcaster br_;
-  tf::Transform transform;
-  tf::Quaternion q;
+  // geometry_msgs::PoseStamped goal_;
   
 };
 
