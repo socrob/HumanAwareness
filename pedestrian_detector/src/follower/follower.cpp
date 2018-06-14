@@ -352,7 +352,7 @@ void Follower::updateHeadPosition(){
   try{ 
     listener_->lookupTransform("/base_link", "/head_link", ros::Time(0), transform);
   }catch (tf::TransformException &ex) {
-    ROS_DEBUG("%s",ex.what());
+    ROS_WARN("%s",ex.what());
   }
   tf::Matrix3x3(transform.getBasis()).getRPY(roll, pitch, yaw);
 
@@ -365,9 +365,9 @@ void Follower::updateHeadPosition(){
     }else if(angle < -M_PI/2){
       angle = - M_PI/2;
     }
-    float v = 1.5*(2 * std::abs(angle - yaw)/M_PI)*100;
-    if(v > 100){
-      v = 100;
+    float v = 3.0*(2 * std::abs(angle - yaw)/M_PI)*100;
+    if(v > 300){
+      v = 300;
     }
 
     //Speed Control
