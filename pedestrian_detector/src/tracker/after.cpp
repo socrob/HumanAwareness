@@ -15,23 +15,29 @@ std::string name;
 geometry_msgs::PointStamped personposition;
 
 int closerperson(std::vector<people_msgs::Person> m,int s){
+
   int closer = 0;
   geometry_msgs::PointStamped pointin;
-  float dcloser = 0;;
+  float dcloser = 0;
+
   for(int i = 0; i < s; i++){
+
     pointin.point.x = m[i].position.x;
     pointin.point.y = m[i].position.y;
     pointin.point.z = m[i].position.z;
     float d = sqrt(pow(pointin.point.x,2) + pow(pointin.point.y,2));
+
     if(i == 0){
       dcloser = d;
     }else{
       if (d < dcloser){
-	closer = i;
-	dcloser = d;
+        closer = i;
+        dcloser = d;
       }
     }
+
   }
+
   return closer;
 
 }
@@ -57,23 +63,25 @@ void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
     int count = 0;
     for(int i = 0; i < s; i++){
       if(name == msg->people[i].name){
-	personpoint.point = msg->people[i].position;
-	personpoint.header = msg->header;
-	personvx = msg->people[i].velocity.x;
-	personvy = msg->people[i].velocity.y;
+        personpoint.point = msg->people[i].position;
+        personpoint.header = msg->header;
+        personvx = msg->people[i].velocity.x;
+        personvy = msg->people[i].velocity.y;
       }else{
-	count++;
-	  }
+      	count++;
+	    }
+
       if(count==s){
-	int j = closerperson(msg->people,s);
-       	name = msg->people[j].name;
-	personpoint.point = msg->people[j].position;
-	personpoint.header = msg->header;
-	personvx = msg->people[i].velocity.x;
-	personvy = msg->people[i].velocity.y;
+        int j = closerperson(msg->people,s);
+        name = msg->people[j].name;
+        personpoint.point = msg->people[j].position;
+        personpoint.header = msg->header;
+        personvx = msg->people[i].velocity.x;
+        personvy = msg->people[i].velocity.y;
       }
     }
   }
+  
   personposition=personpoint;
   std::cout << "tf pub" << std::endl;
 
@@ -97,8 +105,8 @@ int main(int argc,char* argv[]){
   ros::NodeHandle n;
   //listener = new (tf::TransformListener);
 
-  ros::Subscriber trackpeople_sub = n.subscribe("/people_tracker/people", 1, peopletrackCallback);
-  ros::Publisher personpub = n.advertise<geometry_msgs::PointStamped>("/person_position",10);
+  ros::Subscriber trackpeople_sub = n.subscribe("people_tracker/people", 1, peopletrackCallback);
+  ros::Publisher personpub = n.advertise<geometry_msgs::PointStamped>("person_position",10);
   
   ros::Rate loop(20);
   while(ros::ok()){
