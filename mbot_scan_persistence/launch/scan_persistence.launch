@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="namespace"   default="scan_persistence" />
+  
+  <arg name="left"        default="true" />
+  <arg name="right"       default="false" />
+  
+  <arg name="scan_topic"  default="/scan_combined" />
+  
+  
+  <!-- list of scan topics to combine -->
+  <arg name="scan_list" default='"/scan_combined","/scan_left","/scan_right"' />
+
+  <group ns="$(arg namespace)" >
+    
+    <!-- SCAN THROTTLING -->
+    <!--<node pkg="topic_tools" type="throttle" name="laser_scan_throttle_node" args="messages $(arg scan_topic) 4 scan_in_throttled" respawn="true" /> -->
+    
+    <node pkg="mbot_scan_persistence" type="scan_persistence" name="scan_persistence_node" output="screen" respawn="true" >
+      <remap from="scan_in" to="$(arg scan_topic)" />
+      <remap from="scan_out" to="scan_in_throttled" />
+    </node>
+    
+    <!-- SCAN TO ACCUMULATED POINTCLOUD -->
+    <node pkg="laser_assembler" type="laser_scan_assembler" name="laser_scan_assembler_node" output="screen" respawn="true" >
+      
+      <remap from="scan" to="scan_in_throttled" />
+      <param name="max_scans" type="int" value="50" />
+      <param name="fixed_frame" type="string" value="map" />
+      
+    </node>
+    
+    <!-- POINTCLOUD TO SCAN -->
+    <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan_left_node" output="screen" respawn="true" >
+      
+      <remap from="cloud_in" to="cloud_out" />
+      <remap from="scan" to="/scan_left" />
+      
+      <param name="scan_time"       value="0.1" />
+      <param name="angle_min"       value="1.0" />
+      <param name="angle_max"       value="2.2" />
+      <param name="angle_increment" value="0.008726646259971648" />
+      <param name="range_min"       value="0.01" />
+      <param name="range_max"       value="5.0" />
+      <param name="target_frame"    value="base_link" />
+      
+    </node>
+    
+    <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan_right_node" output="screen" respawn="true" >
+      
+      <remap from="cloud_in" to="cloud_out" />
+      <remap from="scan" to="/scan_right" />
+      
+      <param name="scan_time"       value="0.1" />
+      <param name="angle_min"       value="-2.2" />
+      <param name="angle_max"       value="-1.0" />
+      <param name="angle_increment" value="0.008726646259971648" />
+      <param name="range_min"       value="0.01" />
+      <param name="range_max"       value="5.0" />
+      <param name="target_frame"    value="base_link" />
+      
+    </node>
+    
+    <!-- combine rear and front laser scanner into one topic
+    <node pkg="cob_scan_unifier" type="scan_unifier_node" name="scan_persistence_unifier" output="log" respawn="true" >
+      <rosparam param="input_scans" subst_value="True">[$(arg scan_list)]</rosparam>
+      <param name="loop_rate" value="40.0"/>
+      <remap from="scan_unified" to="scan_combined_persistent"/>
+    </node>
+ -->
+    
+  </group>
+  
+</launch>
+
