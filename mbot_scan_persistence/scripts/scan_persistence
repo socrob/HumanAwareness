@@ -4,7 +4,7 @@
 import rospy, tf, math
 
 from geometry_msgs.msg import Pose2D
-from sensor_msgs.msg import PointCloud2, LaserScan
+from sensor_msgs.msg import PointCloud, LaserScan
 
 from laser_assembler.srv import *
 
@@ -62,22 +62,25 @@ def scan_in_callback(msg):
   
 #  rospy.loginfo("last pose:\n%s\ncurrent pose:\n%s\nlinearUpdate:\n%s\nangularUpdate:\n%s", last_pose, current_pose, eucledean_2d_distance(current_pose, last_pose), angular_yaw_distance(current_pose, last_pose))
   
-  if eucledean_2d_distance(current_pose, last_pose) > linearUpdate or angular_yaw_distance(current_pose, last_pose) > angularUpdate:
+  if (msg.header.stamp - last_scan_in_msg.header.stamp > rospy.Duration(1.0)):
+    rospy.loginfo("\n\nTIMEOUT!!!!!\n\n")
+  
+  if eucledean_2d_distance(current_pose, last_pose) > linearUpdate or angular_yaw_distance(current_pose, last_pose) > angularUpdate or (msg.header.stamp - last_scan_in_msg.header.stamp > rospy.Duration(1.0)):
     relay_scan = True
     last_scan_in_msg = current_scan_in_msg
     last_pose = current_pose
-
+    
 
 
 
 # CLASS __init__
 rospy.init_node("scan_persistence_node")
 
-rospy.loginfo("Waiting for service assemble_scans2")
+rospy.loginfo("Waiting for service assemble_scans")
 rospy.wait_for_service("assemble_scans")
-rospy.loginfo("Service assemble_scans2 available")
+rospy.loginfo("Service assemble_scans available")
 
-pointcloud_out_publisher = rospy.Publisher("cloud_out", PointCloud2, queue_size=10)
+pointcloud_out_publisher = rospy.Publisher("cloud_out", PointCloud, queue_size=10)
 scan_in_subscriber = rospy.Subscriber("scan_in", LaserScan, scan_in_callback)
 scan_out_publisher = rospy.Publisher("scan_out", LaserScan, queue_size=10)
 
@@ -96,17 +99,24 @@ while not rospy.is_shutdown():
     if last_scan_in_msg != None:
       scan_out_publisher.publish(last_scan_in_msg)
   
+  base_link_cloud = None
   fixed_frame_cloud = None
   
   try:
-    assemble_scans = rospy.ServiceProxy('assemble_scans2', AssembleScans2)
+    assemble_scans = rospy.ServiceProxy('assemble_scans', AssembleScans)
     resp = assemble_scans(rospy.Time(0, 0), rospy.get_rostime())
     fixed_frame_cloud = resp.cloud
   except rospy.ServiceException, e:
-    print "Service call failed: %s"%e
+    rospy.logwarn("Service call failed: %s"%e)
     continue
-    
-  base_link_cloud = tf_listener.transformPointCloud("base_link", fixed_frame_cloud)
+  
+  try:
+    base_link_cloud = tf_listener.transformPointCloud("base_link", fixed_frame_cloud)
+  except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException, tf.Exception), e:
+    rospy.logwarn("no odom to base_link")
+    continue
+  
+#  rospy.loginfo("publishing pointcloud_out")
   
   pointcloud_out_publisher.publish(base_link_cloud)
 
