@@ -21,7 +21,7 @@ while not rospy.is_shutdown():
     assemble_scans2 = rospy.ServiceProxy('assemble_scans2', AssembleScans2)
     resp = assemble_scans2(rospy.Time(0, 0), rospy.get_rostime())
     pointcloud_out_publisher.publish(resp.cloud)
-    rospy.loginfo("Published persistent pointcloud")
+#    rospy.loginfo("Published persistent pointcloud")
     
   except rospy.ServiceException, e:
     rospy.logwarn("Service call failed: %s"%e)

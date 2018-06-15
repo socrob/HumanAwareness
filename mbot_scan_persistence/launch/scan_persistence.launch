@@ -3,7 +3,7 @@
 
   <arg name="namespace"           default="scan_persistence" />
   
-  <arg name="range_min"          default="0.37" />
+  <arg name="range_min"          default="0.425" />
   <arg name="throttle_rate"       default="10" />
   <arg name="num_accumulated_pcl" default="100" />
   <arg name="scan_topic"          default="/scan_combined" />
@@ -43,7 +43,7 @@
       <remap from="cloud_in" to="cloud_out" />
       <remap from="scan" to="/scan_left" />
       
-      <param name="angle_min"       value="1.0" />
+      <param name="angle_min"       value="1.2" />
       <param name="angle_max"       value="2.2" />
       <param name="angle_increment" value="0.008726646259971648" />
       <param name="range_min"       value="$(arg range_min)" />
@@ -62,7 +62,7 @@
       <remap from="scan" to="/scan_right" />
       
       <param name="angle_min"       value="-2.2" />
-      <param name="angle_max"       value="-1.0" />
+      <param name="angle_max"       value="-1.2" />
       <param name="angle_increment" value="0.008726646259971648" />
       <param name="range_min"       value="$(arg range_min)" />
       <param name="range_max"       value="5.0" />
