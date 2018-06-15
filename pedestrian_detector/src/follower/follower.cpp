@@ -10,16 +10,16 @@ double euclidean_distance_2d(geometry_msgs::Point p1, geometry_msgs::Point p2) {
 Follower::Follower(): 
     nh_(ros::NodeHandle()),
     rod_action_client_("/navigation_by_target", true),
-    move_base_goal_action_client_("/move_base", true),
+    move_base_goal_action_client_("/null_move_base", true),
     update_trajectory_(false),
     update_navigation_goal_(false){
 
   ros::NodeHandle private_nh = ros::NodeHandle("~");
 
-  if(!private_nh.param<std::string>("default_navigation_type", navigation_type_, "straight"))
+  if(!private_nh.param<std::string>("default_navigation_type", navigation_type_, "path_following"))
     ROS_WARN("Parameter default_navigation_type not set. Using default value.");
 
-  if(!private_nh.param<std::string>("default_navigation_stack", navigation_stack_, "move_base"))
+  if(!private_nh.param<std::string>("default_navigation_stack", navigation_stack_, "rod"))
     ROS_WARN("Parameter default_navigation_stack not set. Using default value.");
 
   if(!private_nh.param<std::string>("fixed_frame", fixed_frame_, "/odom"))
@@ -63,7 +63,7 @@ Follower::Follower():
   listener_ = new (tf::TransformListener);
 
   // States
-  following_enabled_ = true; // TODO false
+  following_enabled_ = false;
   initialise_navigation_ = false;
   stop_navigation_ = false;
   current_pose_pointer_ = 0;
