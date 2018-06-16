@@ -9,7 +9,7 @@ kv: 0.2
 kalfa: 0.8
 control_type: planner
 rate: 10.0
-default_head_camera_position: 1.5
+default_head_camera_position: 1.7
 default_navigation_type: path_following # recovery, straight, path_following
 default_navigation_stack: rod # move_base, rod
 path_minimum_distance: 0.5
