@@ -1,6 +1,7 @@
 #ifndef PEDEST0RIAN_DETECTOR_FOLLOWER_H
 #define PEDESTRIAN_DETECTOR_FOLLOWER_H
 
+#include <stdlib.h>
 #include <string>
 #include <vector>
 
@@ -52,7 +53,6 @@ class Follower
   void updateNavigationGoal();
   void updateHeadPosition();
 
-  void getParams();
   void clearCostmaps();
 
   
@@ -60,6 +60,7 @@ class Follower
   ros::NodeHandle nh_;
 
   // Publishers
+  ros::Publisher event_out_publisher_;
   ros::Publisher navigation_goal_publisher_;
   ros::Publisher head_position_publisher_;
   ros::Publisher trajectory_publisher_;
@@ -82,45 +83,55 @@ class Follower
   actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> move_base_goal_action_client_;
 
 
-  // Main following state
-  bool following_enabled_; // TODO enable/disable with event topics
+  // State from external events
+  bool following_enabled_;
   bool initialise_navigation_;
   bool update_trajectory_;
   bool update_navigation_goal_;
   bool stop_navigation_;
+  
+  // State from internal events
+  bool is_path_following_completed_;
+  bool is_poi_tracked_;
+  bool is_poi_lost_;
+  bool is_poi_stopped_;
+  bool is_poi_in_starting_position_;
 
   // Configuration
-  // Type of navigation. Set by default through parameters.
   std::string navigation_type_, navigation_stack_;
   std::string fixed_frame_;
   double path_minimum_distance_;
   double target_pose_minimum_distance_;
   double person_pose_minimum_distance_;
   double head_camera_position_;
+  double poi_moving_radius_;
+  ros::Duration poi_stopped_timeout_;
+  ros::Duration poi_lost_timeout_;
+  ros::Duration poi_tracking_timeout_;
+  
 
   // Position of the person from the Bayesian filter, and of the person in base_link.
   geometry_msgs::PoseStamped robot_pose_;
   geometry_msgs::PointStamped poi_position_;
   geometry_msgs::PointStamped relative_poi_position_;
+  geometry_msgs::PointStamped poi_starting_position_;
+  geometry_msgs::PointStamped poi_moving_position_;
   
-  // Person's path, from the beginning untill the last received person's filtered position
-  // std::vector<geometry_msgs::PointStamped> complete_person_path_;
+  // The path of the person of interest.
   nav_msgs::Path poi_trajectory_;
   geometry_msgs::PoseStamped  target_pose_;
 
-  // The residual trajectory is always the part of the trajectory from the first pose that may be set as target, to the last pose of the complete trajectory.
-  // Once a pose of the residual trajectory is set as target, the poses precedent to that one should not be part of the residual anymore.
+  // The residual trajectory is always the part of the trajectory from the target pose to the last pose of the complete trajectory.
   nav_msgs::Path residual_trajectory_;
 
   // Position in the person's path used as target for navigation (Temporary, change to better indexing of trajectories)
   long unsigned int current_pose_pointer_;
 
   tf::TransformListener* listener_;
-
+  
+  bool isPoiMoving();
   bool isthereaPath(geometry_msgs::PoseStamped goal);
   void broadcastPoseToTF(geometry_msgs::PoseStamped p, std::string target_frame);
-
-  // geometry_msgs::PoseStamped goal_;
   
 };
 

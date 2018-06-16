@@ -6,8 +6,8 @@
   <arg name="launch_visualisation_nodes"    default="true" />
   <arg name="launch_follower"               default="true" />
   <arg name="launch_tracker"                default="true" />
-  <arg name="launch_navigation_stack"       default="true" /> <!-- TODO remove? -->
-  <arg name="launch_darknet_ros_py"         default="false"/> <!-- TODO change to true when launching on robot is possible -->
+  <arg name="launch_navigation_stack"       default="true" />
+  <arg name="launch_darknet_ros_py"         default="true"/>
 
   <arg name="navigation_stack"              default="rod" />
   <arg name="navigation_type"               default="path_following" />

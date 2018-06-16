@@ -5,7 +5,7 @@
   
   <arg name="range_min"          default="0.425" />
   <arg name="throttle_rate"       default="10" />
-  <arg name="num_accumulated_pcl" default="100" />
+  <arg name="num_accumulated_pcl" default="75" />
   <arg name="scan_topic"          default="/scan_combined" />
   
   <group ns="$(arg namespace)" >
