@@ -13,15 +13,15 @@ Follower::Follower():
     move_base_goal_action_client_("/null_move_base", true),
     update_trajectory_(false),
     update_navigation_goal_(false){
-
+  
   ros::NodeHandle private_nh = ros::NodeHandle("~");
-
+  
   if(!private_nh.param<std::string>("default_navigation_type", navigation_type_, "path_following"))
     ROS_WARN("Parameter default_navigation_type not set. Using default value [%s].", navigation_type_.c_str());
-
+  
   if(!private_nh.param<std::string>("default_navigation_stack", navigation_stack_, "rod"))
     ROS_WARN("Parameter default_navigation_stack not set. Using default value [%s].", navigation_stack_.c_str());
-
+  
   if(!private_nh.param<std::string>("fixed_frame", fixed_frame_, "/odom"))
     ROS_WARN("Parameter fixed_frame not set. Using default value [%s].", fixed_frame_.c_str());
   
@@ -34,7 +34,7 @@ Follower::Follower():
   if(!private_nh.param<double>("person_pose_minimum_distance", person_pose_minimum_distance_, 0.5))
     ROS_WARN("Parameter person_pose_minimum_distance not set. Using default value [%f].", person_pose_minimum_distance_);
   
-  if(!private_nh.param<double>("default_head_camera_position", head_camera_position_, 1.86))
+  if(!private_nh.param<double>("default_head_camera_position", head_camera_position_, 1.75))
     ROS_WARN("Parameter default_head_camera_position not set. Using default value [%f].", head_camera_position_);
   
   if(!private_nh.param<double>("poi_moving_radius", poi_moving_radius_, 1.0))
@@ -55,6 +55,12 @@ Follower::Follower():
     ROS_WARN("Parameter poi_tracking_timeout not set. Using default value [%f].", poi_tracking_timeout_double);
   poi_tracking_timeout_ = ros::Duration(poi_tracking_timeout_double);
   
+  double success_timeout_double;
+  if(!private_nh.param<double>("success_timeout", success_timeout_double, 8.0))
+    ROS_WARN("Parameter success_timeout not set. Using default value [%f].", success_timeout_double);
+  success_timeout_ = ros::Duration(success_timeout_double);
+  
+  
   if(poi_stopped_timeout_double > poi_lost_timeout_double) ROS_WARN("poi_stopped_timeout > poi_lost_timeout NOT ADVISABLE");
   
   // Subscribers
@@ -62,7 +68,7 @@ Follower::Follower():
   event_in_subscriber_ = private_nh.subscribe("event_in", 1, &Follower::eventInCallback, this);
   poi_position_subscriber_ = nh_.subscribe("person_position", 1, &Follower::PoiPositionCallback, this);
   robot_position_subscriber_ = nh_.subscribe("/amcl_pose", 1, &Follower::robotPoseCallBack, this);
-
+  
   // Publishers
   event_out_publisher_ = private_nh.advertise<std_msgs::String>("event_out", 10);
   navigation_goal_publisher_ = nh_.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 2);
@@ -76,7 +82,7 @@ Follower::Follower():
   // Service Clients
   move_base_plan_service_client_ = nh_.serviceClient<nav_msgs::GetPlan>("/move_base/GlobalPlanner/make_plan");
   move_base_clear_costmap_service_client_ = nh_.serviceClient<std_srvs::Empty>("/move_base/clear_costmaps");
-
+  
   // States from external events
   following_enabled_ = false;
   initialise_navigation_ = false;
@@ -85,7 +91,8 @@ Follower::Follower():
   
   // State from internal events
   bool is_path_following_completed_ = true;
-  bool is_poi_in_starting_position_ = true;
+  bool is_poi_in_starting_position_ = false;
+  bool is_poi_close_ = false;
   bool is_poi_tracked_ = false;
   bool is_poi_lost_ = false;
   bool is_poi_stopped_ = false;
@@ -100,16 +107,21 @@ void Follower::eventInCallback(const std_msgs::String& msg){
   
   if(msg.data == "e_start"){
     ROS_INFO("Starting following");
+    
+    start_stamp_ = ros::Time::now();
     following_enabled_ = true;
     initialise_navigation_ = true;
+    
   }
 
   if(msg.data == "e_stop"){
     ROS_INFO("Stopping following");
+    
     following_enabled_ = false;
     stop_navigation_ = true;
+  
   }
-
+  
 }
 
 void Follower::PoiPositionCallback(const geometry_msgs::PointStampedConstPtr& msg){
@@ -121,10 +133,10 @@ void Follower::PoiPositionCallback(const geometry_msgs::PointStampedConstPtr& ms
 void Follower::robotPoseCallBack(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg){
   ROS_DEBUG("robotPoseCallBack");
   geometry_msgs::PoseStamped robot_original_frame;
-
+  
   robot_original_frame.header = msg->header;
   robot_original_frame.pose = msg->pose.pose;
-
+  
   try{
     listener_->transformPose(fixed_frame_, robot_original_frame, robot_pose_);
   }catch(tf2::ExtrapolationException &ex){
@@ -196,10 +208,28 @@ bool Follower::isPoiMoving(){
 
 }
 
+bool Follower::isPathCompleted(){
+  
+  long unsigned int poi_trajectory_size = poi_trajectory_.poses.size();
+  
+  if(poi_trajectory_size == 0){
+    return false;
+  }
+  
+  if(current_pose_pointer_ >= poi_trajectory_size){
+    ROS_ERROR("current_pose_pointer_ >= poi_trajectory_size");
+    return true;
+  }
+  
+  double target_pose_distance = euclidean_2d_distance(robot_pose_.pose.position, target_pose_.pose.position);
+  return (current_pose_pointer_ == poi_trajectory_.poses.size()-1) && (target_pose_distance < target_pose_minimum_distance_);
+  
+}
+
 void Follower::initialiseNavigationGoal(){
 
   ROS_INFO("INIT NAVIGATION");
-
+  
   if (navigation_stack_ == "rod"){
     ROS_INFO("Initialising the goal for navigation [rod]");
     
@@ -207,17 +237,17 @@ void Follower::initialiseNavigationGoal(){
     scout_msgs::NavigationByTargetGoal goal;
     goal.target_frame = "/people_following/current_target_pose";
     goal.heading_frame = "/people_following/current_target_pose";
-    goal.proximity = person_pose_minimum_distance_;
+    goal.proximity = 0.1;
     goal.follow_target = true;
-
+    
     rod_action_client_.sendGoal(goal, 
           boost::bind(&Follower::doneCb, this, _1, _2), 
           boost::bind(&Follower::activeCb, this), 
           boost::bind(&Follower::feedbackCb, this, _1));
-
+    
     // Wait for the action to return
     bool finished_before_timeout = rod_action_client_.waitForResult(ros::Duration(2.0));
-
+    
     if (finished_before_timeout){
       actionlib::SimpleClientGoalState state = rod_action_client_.getState();
       ROS_INFO("Action finished: %s", state.toString().c_str());
@@ -227,10 +257,49 @@ void Follower::initialiseNavigationGoal(){
   }
 }
 
+void Follower::updateActionGoal(bool target_following = false){
+
+  ROS_INFO("UPDATE NAVIGATION");
+  
+  if (navigation_stack_ == "rod"){
+    ROS_INFO("Updating the goal for navigation [rod]");
+    
+    rod_action_client_.cancelGoal();
+    
+    // Send a goal to the action
+    scout_msgs::NavigationByTargetGoal goal;
+    goal.target_frame = "/people_following/current_target_pose";
+    goal.heading_frame = "/people_following/current_target_pose";
+    
+    if(target_following){
+      goal.proximity = person_pose_minimum_distance_;
+    } else {
+      goal.proximity = 0.1;
+    }
+    
+    goal.follow_target = true;
+    
+    rod_action_client_.sendGoal(goal, 
+          boost::bind(&Follower::doneCb, this, _1, _2), 
+          boost::bind(&Follower::activeCb, this), 
+          boost::bind(&Follower::feedbackCb, this, _1));
+    
+    // Wait for the action to return
+    bool finished_before_timeout = rod_action_client_.waitForResult(ros::Duration(0.1));
+    
+    if (finished_before_timeout){
+      actionlib::SimpleClientGoalState state = rod_action_client_.getState();
+      ROS_INFO("Action finished: %s", state.toString().c_str());
+    } else {
+      ROS_WARN("Action did not finish before the time out (2.0 sec).");
+    }
+  }
+}
+
 void Follower::stopNavigation(){
 
   ROS_INFO("Stopping navigation for stack [%s]", navigation_stack_.c_str());
-
+  
   if (navigation_stack_ == "move_base_simple") {
     navigation_goal_publisher_.publish(robot_pose_);
   }
@@ -238,7 +307,7 @@ void Follower::stopNavigation(){
   if (navigation_stack_ == "move_base") {
     move_base_goal_action_client_.cancelGoal();
   }
-
+  
   if (navigation_stack_ == "rod") {
     rod_action_client_.cancelGoal();
   }
@@ -248,9 +317,9 @@ void Follower::stopNavigation(){
 }
 
 void Follower::updateTrajectory(){
-
+  
   ROS_DEBUG("Absolute person position in frame [%s]: %2.3f, %2.3f",  poi_position_.header.frame_id.c_str(), poi_position_.point.x, poi_position_.point.y);
-
+  
   std::string f = poi_position_.header.frame_id;
   if(f != fixed_frame_){
     ROS_WARN("Person position not in fixed frame");
@@ -270,7 +339,7 @@ void Follower::updateTrajectory(){
   // Update path and trajectory only when the person moves some distance
   double path_distance;
   bool path_empty = poi_trajectory_.poses.size() == 0;
-
+  
   if(poi_trajectory_.poses.size() >= 1){
     geometry_msgs::PoseStamped last_trajectory_position = poi_trajectory_.poses[poi_trajectory_.poses.size()-1];
     path_distance = euclidean_2d_distance(poi_position_.point, last_trajectory_position.pose.position);
@@ -281,40 +350,51 @@ void Follower::updateTrajectory(){
     initialise_navigation_ = true;
     poi_starting_position_ = poi_position_;
   }
-
+  
   if(path_empty || path_distance >= path_minimum_distance_){
-
+  
     // Update the person's trajectory (that contains poses instead of points)
     geometry_msgs::PoseStamped poi_pose;
     
     poi_pose.header = poi_position_.header;
     poi_pose.pose.position = poi_position_.point;
     poi_pose.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(-robot_pose_.pose.position.y + poi_position_.point.y, -robot_pose_.pose.position.x + poi_position_.point.x));
-
+    
     poi_trajectory_.header = poi_position_.header;
     poi_trajectory_.poses.push_back(poi_pose);
-
+    
     // set the pose of the previous Person Of Interest so that it points to the last one (poi_pose)
     if(poi_trajectory_.poses.size() >= 2) {
       geometry_msgs::PoseStamped& prev_poi_pose = poi_trajectory_.poses[poi_trajectory_.poses.size() - 2];
       prev_poi_pose.pose.orientation = tf::createQuaternionMsgFromYaw(atan2(poi_position_.point.y - prev_poi_pose.pose.position.y, poi_position_.point.x - prev_poi_pose.pose.position.x));
     }
-
+    
     // Publish complete person path
     trajectory_publisher_.publish(poi_trajectory_);
-
+  
   }
 
 }
 
 void Follower::updateNavigationGoal(){
   
+  double poi_distance = euclidean_2d_distance(robot_pose_.pose.position, poi_position_.point);
+  bool prev_is_poi_close_ = is_poi_close_;
+  is_poi_close_ = is_poi_tracked_ && poi_distance < person_pose_minimum_distance_ + path_minimum_distance_;
+  
+  if( prev_is_poi_close_ != is_poi_close_ ){
+    updateActionGoal(is_poi_close_);
+  
+  }
+  ROS_INFO("poi_distance: %f", poi_distance);
+  
+  
   // target_pose_ specify the pose currently selected as goal for navigation.
-
+  
   // The residual trajectory starts from current target and ends with the last position of the complete trajectory
   // Update the residual trajectory
   long unsigned int poi_trajectory_size = poi_trajectory_.poses.size();
-
+  
   if(poi_trajectory_size == 0){
     ROS_DEBUG("EMPTY PATH");
     return;
@@ -325,20 +405,20 @@ void Follower::updateNavigationGoal(){
     ROS_ERROR("current_pose_pointer_ >= poi_trajectory_.poses.size()");
     return;
   }
-
+  
   target_pose_ = poi_trajectory_.poses[current_pose_pointer_];
   residual_trajectory_.poses = std::vector<geometry_msgs::PoseStamped>(poi_trajectory_.poses.begin()+current_pose_pointer_, poi_trajectory_.poses.end());
   residual_trajectory_.header = poi_trajectory_.header;
   residual_trajectory_publisher_.publish(residual_trajectory_);
   // TODO get rid of integer pointer, use adressess
   // for(auto residual_pose : residual_trajectory_.poses)
-
+  
   geometry_msgs::PoseStamped new_target_pose = target_pose_;
   next_target_pose_publisher_.publish(robot_pose_);
   double target_pose_distance = euclidean_2d_distance(robot_pose_.pose.position, target_pose_.pose.position);
   bool closer_target_found = false;
   unsigned long int new_current_pose_pointer;
-
+  
   for(long unsigned int residual_pose_index = current_pose_pointer_; residual_pose_index < poi_trajectory_.poses.size(); residual_pose_index++){
     auto residual_pose = poi_trajectory_.poses[residual_pose_index];
     double residual_pose_distance = euclidean_2d_distance(robot_pose_.pose.position, residual_pose.pose.position);
@@ -348,11 +428,11 @@ void Follower::updateNavigationGoal(){
       new_current_pose_pointer = residual_pose_index;
     }
   }
-
+  
   if(closer_target_found){
-
+  
     geometry_msgs::PoseStamped goal;
-
+    
     target_pose_ = new_target_pose;
     current_pose_pointer_ = new_current_pose_pointer;
     
@@ -362,18 +442,18 @@ void Follower::updateNavigationGoal(){
     if (navigation_stack_ == "move_base_simple") {
       
       navigation_goal_publisher_.publish(goal);
-
+    
     } else if(navigation_stack_ == "move_base"){
       
       move_base_msgs::MoveBaseGoal move_base_goal;
       move_base_goal.target_pose = goal;
-
+      
       ROS_INFO("Sending move_base_goal");
       move_base_goal_action_client_.sendGoal(move_base_goal);
-
+      
       ROS_INFO("Waiting move base result");
       move_base_goal_action_client_.waitForResult();
-
+      
       if(move_base_goal_action_client_.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
         ROS_INFO("SimpleClientGoalState::SUCCEEDED");
       } else {
@@ -381,9 +461,9 @@ void Follower::updateNavigationGoal(){
       }
       
     }
-
+    
     ROS_INFO("new trajectory navigation target: %lu\\%lu\t", current_pose_pointer_, poi_trajectory_.poses.size());
-
+  
   }else{
     // Skip the next residual pose if it is close enough, unless it is the last
     if(target_pose_distance < target_pose_minimum_distance_){
@@ -392,48 +472,70 @@ void Follower::updateNavigationGoal(){
   }
   
   // The path following is completed when the last pose is set as target and is close
+  bool perv_is_path_following_completed_ = is_path_following_completed_;
   is_path_following_completed_ = (current_pose_pointer_ == poi_trajectory_.poses.size()-1) && (target_pose_distance < target_pose_minimum_distance_);
-
+  
+  if(!perv_is_path_following_completed_ && is_path_following_completed_){
+    path_following_completed_stamp_ = ros::Time::now();
+  }
+  
   target_pose_publisher_.publish(target_pose_);
   broadcastPoseToTF(target_pose_, "/people_following/current_target_pose");
-
+  
 }
 
 void Follower::updateHeadPosition(){
-
-  geometry_msgs::Point p = relative_poi_position_.point;
-
-  tf::StampedTransform transform;
-  double roll, pitch, yaw;
   
-  try{ 
-    listener_->lookupTransform("/base_link", "/head_link", ros::Time(0), transform);
+  std_msgs::Float64 head_camera_position_msg;
+  head_camera_position_msg.data = head_camera_position_;
+  head_camera_position_publisher_.publish(head_camera_position_msg);
+  ROS_INFO("Head camera position set to %f", head_camera_position_msg.data);
+  
+  geometry_msgs::PointStamped poi_position_recent = poi_position_;
+  
+  poi_position_recent.header.stamp = ros::Time::now();
+  
+  // Obtain the person's position in the robot's frame
+  try{
+      listener_->transformPoint("/base_link", ros::Time(0), poi_position_, poi_position_.header.frame_id, relative_poi_position_);
+      ROS_INFO("Relative person position in frame [%s]: %2.3f, %2.3f",  relative_poi_position_.header.frame_id.c_str(), relative_poi_position_.point.x, relative_poi_position_.point.y);
+  }catch(tf2::ExtrapolationException &ex){
+      ROS_WARN("%s",ex.what());
   }catch (tf::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
+      ROS_WARN("%s",ex.what());
   }
-  tf::Matrix3x3(transform.getBasis()).getRPY(roll, pitch, yaw);
-
+  
+  geometry_msgs::Point p = relative_poi_position_.point;
+  
   std_msgs::UInt8MultiArray controlMsg;
   controlMsg.data.resize(2);
-  double angle = atan2(p.y,p.x);
-  if(std::abs(angle - yaw) > 0.1){
+  
+  double angle;
+  
+  if(!is_poi_tracked_ && is_path_following_completed_){
+    
+    angle = 0;
+    
+  } else {
+  
+    angle = atan2(p.y,p.x);
     if(angle > M_PI/2){
       angle = M_PI/2;
     }else if(angle < -M_PI/2){
-      angle = - M_PI/2;
+      angle = -M_PI/2;
     }
-    float v = 3.0*(2 * std::abs(angle - yaw)/M_PI)*100;
-    if(v > 300){
-      v = 300;
-    }
-
-    //Speed Control
-    controlMsg.data[1] = v;
-    //Position control
-    double angle_degrees = 90 - (180*angle)/M_PI;
-    controlMsg.data[0] = angle_degrees;
+    
   }
+  
+  float v = 300.0;
+  //Speed Control
+  controlMsg.data[1] = v;
+  //Position control
+  double angle_degrees = 90 - (180*angle)/M_PI;
+  controlMsg.data[0] = angle_degrees;
+//  }
   head_position_publisher_.publish(controlMsg);
+  
 }
 
 bool Follower::isthereaPath(geometry_msgs::PoseStamped goal){
@@ -468,11 +570,6 @@ void Follower::reset(){
   ROS_INFO("navigation_stack: %s", navigation_stack_.c_str());
 
   // TODO check for all action clients and cancel goals if needed
-
-  std_msgs::Float64 head_camera_position_msg;
-  head_camera_position_msg.data = head_camera_position_;
-  head_camera_position_publisher_.publish(head_camera_position_msg);
-  ROS_INFO("Head camera position set to %f", head_camera_position_msg.data);
 
   if(navigation_stack_ == "rod"){
     ROS_INFO("Waiting for the rod action server to become available");
@@ -520,12 +617,12 @@ void Follower::loop(){
 
     // Update internal state variables
     
-    
+    bool prev_is_poi_in_starting_position_ = is_poi_in_starting_position_;
     bool prev_is_poi_stopped_ = is_poi_stopped_;
     bool prev_is_poi_lost_ = is_poi_lost_;
     bool prev_is_poi_tracked_ = is_poi_tracked_;
-    ros::Time now = ros::Time::now();
     
+    ros::Time now = ros::Time::now();
     double distance_from_starting_position = euclidean_2d_distance(poi_starting_position_.point, poi_position_.point);
     is_poi_in_starting_position_ = is_poi_tracked_ && (distance_from_starting_position < poi_moving_radius_);
     
@@ -536,18 +633,33 @@ void Follower::loop(){
       poi_moving_position_ = poi_position_;
 
     is_poi_stopped_ = is_poi_tracked_ && !is_poi_in_starting_position_ && (now - poi_moving_position_.header.stamp > poi_stopped_timeout_);
-    is_poi_lost_ = !is_poi_stopped_ && !(is_poi_in_starting_position_ && is_poi_tracked_) && is_path_following_completed_ && (untracked_time > poi_lost_timeout_);
+    is_poi_lost_ = !is_poi_stopped_ && !(is_poi_in_starting_position_ && is_poi_tracked_) && is_path_following_completed_ && !is_poi_tracked_ && (now - path_following_completed_stamp_ > poi_lost_timeout_);
     
     
     std_msgs::String e;
     
-    if(prev_is_poi_stopped_ != is_poi_stopped_) {
-      e.data = is_poi_stopped_ ? "e_stopped" : "e_resumed";
+    if(!e_success_or_failure_ && is_poi_in_starting_position_) {
+      e.data = "e_success";
+      event_out_publisher_.publish(e);
+      e_success_or_failure_ = true;
+    } else if (!e_success_or_failure_ && now - start_stamp_ > success_timeout_) {
+      e.data = "e_failure";
+      event_out_publisher_.publish(e);
+      e_success_or_failure_ = true;
+    }
+    
+    if(prev_is_poi_in_starting_position_ != is_poi_in_starting_position_ && is_poi_in_starting_position_) {
+      e.data = "e_left_starting_position";
       event_out_publisher_.publish(e);
     }
     
-    if(prev_is_poi_lost_ != is_poi_lost_) {
-      e.data = is_poi_lost_ ? "e_failure" : "e_recovered";
+    if(prev_is_poi_stopped_ != is_poi_stopped_ && is_poi_stopped_) {
+      e.data = "e_timeout";
+      event_out_publisher_.publish(e);
+    }
+    
+    if(prev_is_poi_lost_ != is_poi_lost_ && is_poi_lost_) {
+      e.data = "e_lost";
       event_out_publisher_.publish(e);
     }
     
@@ -557,12 +669,13 @@ void Follower::loop(){
     }
     
     ROS_INFO("trajectory navigation target: %lu\\%lu\t", current_pose_pointer_, poi_trajectory_.poses.size());
-    ROS_INFO("\n untracked_time: %f \n is_poi_tracked: %s \n is_poi_lost: %s  \n is_path_following_completed: %s \n distance_from_starting_position: %f \n is_poi_in_starting_position: %s \n is_poi_stopped: %s \n ", 
+    ROS_INFO("\n untracked_time: %f \n is_poi_tracked: %s \n is_poi_close: %s \n is_poi_lost: %s  \n is_path_following_completed: %s \n distance_from_starting_position: %f \n is_poi_in_starting_position: %s \n is_poi_stopped: %s \n ",
         untracked_time.toSec(),
-        is_poi_tracked_?"T":"F", 
-        is_poi_lost_?"T":"F", 
-        is_path_following_completed_?"T":"F", 
-        distance_from_starting_position, 
+        is_poi_tracked_?"T":"F",
+        is_poi_close_?"T":"F",
+        is_poi_lost_?"T":"F",
+        is_path_following_completed_?"T":"F",
+        distance_from_starting_position,
         is_poi_in_starting_position_?"T":"F",
         is_poi_stopped_?"T":"F"
         );
