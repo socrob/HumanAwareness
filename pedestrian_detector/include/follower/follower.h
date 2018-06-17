@@ -89,13 +89,17 @@ class Follower
   bool update_trajectory_;
   bool update_navigation_goal_;
   bool stop_navigation_;
+  ros::Time start_stamp_;
   
   // State from internal events
   bool is_path_following_completed_;
+  bool is_poi_in_starting_position_;
+  bool is_poi_close_; 
+  bool is_poi_stopped_;
   bool is_poi_tracked_;
   bool is_poi_lost_;
-  bool is_poi_stopped_;
-  bool is_poi_in_starting_position_;
+  bool e_success_or_failure_;
+  ros::Time path_following_completed_stamp_;
 
   // Configuration
   std::string navigation_type_, navigation_stack_;
@@ -108,10 +112,10 @@ class Follower
   ros::Duration poi_stopped_timeout_;
   ros::Duration poi_lost_timeout_;
   ros::Duration poi_tracking_timeout_;
+  ros::Duration success_timeout_;
   
-
   // Position of the person from the Bayesian filter, and of the person in base_link.
-  geometry_msgs::PoseStamped robot_pose_;
+  geometry_msgs::PoseStamped  robot_pose_;
   geometry_msgs::PointStamped poi_position_;
   geometry_msgs::PointStamped relative_poi_position_;
   geometry_msgs::PointStamped poi_starting_position_;
@@ -120,15 +124,17 @@ class Follower
   // The path of the person of interest.
   nav_msgs::Path poi_trajectory_;
   geometry_msgs::PoseStamped  target_pose_;
-
+  
   // The residual trajectory is always the part of the trajectory from the target pose to the last pose of the complete trajectory.
   nav_msgs::Path residual_trajectory_;
-
+  
   // Position in the person's path used as target for navigation (Temporary, change to better indexing of trajectories)
   long unsigned int current_pose_pointer_;
-
+  
   tf::TransformListener* listener_;
   
+  void updateActionGoal(bool target_following);
+  bool isPathCompleted();
   bool isPoiMoving();
   bool isthereaPath(geometry_msgs::PoseStamped goal);
   void broadcastPoseToTF(geometry_msgs::PoseStamped p, std::string target_frame);

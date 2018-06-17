@@ -1,0 +1,14 @@
+range:
+  min: 0.40             # Min range (m)
+  max: 2.0              # Max range (m)
+  noise: 0.0            # Standard deviation of gaussian noise (m)
+angle:
+  min: -2.2              # The min scan angle (radians)
+  max: -1.2              # The max scan angle (inclusive, radians)
+  increment: 0.01       # The angle increment to scan at (radians)
+map:
+  topic: "/map"         # The map topic to subscribe to
+laser:
+  hz: 20  # laser scan frequency
+  topic: "/scan_right"  # The LaserScan topic to publish
+  frame: "/base_link"  # The tf frame that the laser is based in

@@ -14,9 +14,12 @@
   <arg name="move_base_simple"              default="false" />
 
   <arg name="fixed_frame"                   default="/odom" />
-  <arg name="person_pose_minimum_distance"  default="0.45" />
-  <arg name="target_pose_minimum_distance"  default="0.75" />
+  <arg name="person_pose_minimum_distance"  default="0.1" />
+  <arg name="target_pose_minimum_distance"  default="0.6" />
   <arg name="path_minimum_distance"         default="0.15" />
+  
+  <arg name="poi_lost_timeout"              default="5.0" />
+  <arg name="poi_tracking_timeout"          default="5.0" />
 
 
   <include file="$(find mbot_2dnav)/ros/launch/2dnav_people_following.launch" if="$(arg launch_navigation_stack)" />
@@ -50,8 +53,12 @@
       <param name="person_pose_minimum_distance"  type="double"   value="$(arg person_pose_minimum_distance)" />
       <param name="target_pose_minimum_distance"  type="double"   value="$(arg target_pose_minimum_distance)" />
       <param name="path_minimum_distance"         type="double"   value="$(arg path_minimum_distance)" />
+      <param name="poi_lost_timeout"              type="double"   value="$(arg poi_lost_timeout)" />
+      <param name="poi_tracking_timeout"          type="double"   value="$(arg poi_tracking_timeout)" />
 
       <remap from="twist_topic" to="/cmd_vel_prio_medium"/>
+
+
       <remap from="/move_base_simple/goal" to="/null/move_base_simple/goal" unless="$(arg move_base_simple)" />
 
     </node>

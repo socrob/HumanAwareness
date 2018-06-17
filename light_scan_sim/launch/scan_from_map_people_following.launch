@@ -1,0 +1,26 @@
+<launch>
+
+  <arg name="scan_topic"          default="/scan_combined" />
+  
+  <!-- The scan_left simulator -->
+  <node name="scan_left_from_map_node" pkg="light_scan_sim" type="light_scan_sim_node" output="screen">
+    <rosparam file="$(find light_scan_sim)/config/config_scan_left.yaml" command="load" />
+  </node>
+
+  <!-- The scan_right simulator -->
+  <node name="scan_right_from_map_node" pkg="light_scan_sim" type="light_scan_sim_node" output="screen">
+    <rosparam file="$(find light_scan_sim)/config/config_scan_right.yaml" command="load" />
+  </node>
+
+  <!-- COMBINE SCAN
+    output: /scan_right (sensor_msgs/LaserScan)
+    output: /scan_left  (sensor_msgs/LaserScan)
+    output: /scan_combined_persistent (sensor_msgs/LaserScan)
+  -->
+  <node pkg="cob_scan_unifier" type="scan_unifier_node" name="scan_persistence_unifier" output="log" respawn="true" >
+    <rosparam param="input_scans" subst_value="True">["$(arg scan_topic)","/scan_left","/scan_right"]</rosparam>
+    <param name="loop_rate" value="40.0"/>
+    <remap from="scan_unified" to="/scan_combined_persistent"/>
+  </node>
+  
+</launch>
