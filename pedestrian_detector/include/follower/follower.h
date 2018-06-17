@@ -84,22 +84,25 @@ class Follower
 
 
   // State from external events
-  bool following_enabled_;
+  ros::Time start_stamp_;
+  bool are_subscribers_created_;
+  bool update_navigation_goal_;
+  bool poi_position_received_;
   bool initialise_navigation_;
   bool update_trajectory_;
-  bool update_navigation_goal_;
+  bool following_enabled_;
   bool stop_navigation_;
-  ros::Time start_stamp_;
   
   // State from internal events
-  bool is_path_following_completed_;
+  ros::Time path_completed_stamp_;
   bool is_poi_in_starting_position_;
-  bool is_poi_close_; 
+  bool is_path_completed_;
   bool is_poi_stopped_;
   bool is_poi_tracked_;
+  bool is_poi_close_; 
   bool is_poi_lost_;
-  bool e_success_or_failure_;
-  ros::Time path_following_completed_stamp_;
+  bool e_success_;
+  bool e_failure_;
 
   // Configuration
   std::string navigation_type_, navigation_stack_;
@@ -109,10 +112,10 @@ class Follower
   double person_pose_minimum_distance_;
   double head_camera_position_;
   double poi_moving_radius_;
-  ros::Duration poi_stopped_timeout_;
-  ros::Duration poi_lost_timeout_;
-  ros::Duration poi_tracking_timeout_;
   ros::Duration success_timeout_;
+  ros::Duration poi_lost_timeout_;
+  ros::Duration poi_stopped_timeout_;
+  ros::Duration poi_tracking_timeout_;
   
   // Position of the person from the Bayesian filter, and of the person in base_link.
   geometry_msgs::PoseStamped  robot_pose_;
@@ -133,6 +136,8 @@ class Follower
   
   tf::TransformListener* listener_;
   
+  void createSubscribers();
+  void destroySubscribers();
   void updateActionGoal(bool target_following);
   bool isPathCompleted();
   bool isPoiMoving();
