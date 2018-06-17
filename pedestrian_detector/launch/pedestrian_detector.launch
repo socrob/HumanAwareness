@@ -14,8 +14,8 @@
   <arg name="move_base_simple"              default="false" />
 
   <arg name="fixed_frame"                   default="/odom" />
-  <arg name="person_pose_minimum_distance"  default="0.1" />
-  <arg name="target_pose_minimum_distance"  default="0.6" />
+  <arg name="person_pose_minimum_distance"  default="0.75" />
+  <arg name="target_pose_minimum_distance"  default="0.75" />
   <arg name="path_minimum_distance"         default="0.15" />
   
   <arg name="poi_lost_timeout"              default="5.0" />
