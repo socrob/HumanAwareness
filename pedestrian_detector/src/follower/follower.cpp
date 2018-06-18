@@ -170,8 +170,6 @@ void Follower::eventInCallback(const std_msgs::String& msg){
 }
 
 void Follower::PoiPositionCallback(const geometry_msgs::PointStampedConstPtr& msg){
-  ROS_INFO("PoiPositionCallback");
-  
   poi_position_ = *msg;
   
   // First poi position received
@@ -429,7 +427,6 @@ void Follower::updateNavigationGoal(){
   if( prev_is_poi_close_ != is_poi_close_ ){
     updateActionGoal(is_poi_close_);
   }
-  ROS_INFO("poi_distance: %f", poi_distance);
   
   geometry_msgs::PoseStamped poi_pose;
   poi_pose.header = poi_position_.header;
@@ -518,7 +515,7 @@ void Follower::updateNavigationGoal(){
     }
   }
   
-  // The path following is completed when the last pose is set as target and is close
+  // The path following is completed when the last pose is set as target and is close enough to be considered as reached
   bool perv_is_path_completed_ = is_path_completed_;
   is_path_completed_ = (current_pose_pointer_ == poi_trajectory_.poses.size()-1) && (target_pose_distance < target_pose_minimum_distance_);
   
