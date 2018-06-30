@@ -535,7 +535,7 @@ void Follower::updateHeadPosition(){
   head_camera_position_publisher_.publish(head_camera_position_msg);
 //  ROS_INFO("Head camera position set to %f", head_camera_position_msg.data);
   
-  geometry_msgs::Point p;
+  geometry_msgs::Point p, p_recent;
   
 //  geometry_msgs::PointStamped poi_position_recent = poi_position_;
 //  poi_position_recent.header.stamp = ros::Time::now();
@@ -553,6 +553,25 @@ void Follower::updateHeadPosition(){
 //      ROS_WARN("%s",ex.what());
 //  }
   
+  
+  
+  geometry_msgs::PointStamped poi_position_recent = poi_position_;
+  poi_position_recent.header.stamp = ros::Time::now();
+  
+  // TODO check if its better to not update after poi untracked
+  
+  // Obtain the person's position in the robot's frame
+  try{
+      listener_->transformPoint("/base_link", ros::Time(0), poi_position_, poi_position_.header.frame_id, poi_position_recent);
+      p_recent = poi_position_recent.point;
+      ROS_DEBUG("Follower::updateHeadPosition(): Relative person position in frame [%s]: %2.3f, %2.3f",  poi_position_recent.header.frame_id.c_str(), poi_position_recent.point.x, poi_position_recent.point.y);
+  }catch(tf2::ExtrapolationException &ex){
+      ROS_WARN("%s",ex.what());
+  }catch (tf::TransformException &ex) {
+      ROS_WARN("%s",ex.what());
+  }
+  
+  
   p = relative_poi_position_.point;
 
   tf::StampedTransform transform;
@@ -568,23 +587,37 @@ void Follower::updateHeadPosition(){
   std_msgs::UInt8MultiArray controlMsg;
   controlMsg.data.resize(2);
   
-  double angle_raw = atan2(p.y, p.x);
+//  double angle_raw = atan2(p.y, p.x);
+  double recent_angle_raw = atan2(p_recent.y, p_recent.x);
   double angle;
+  
+//  ROS_INFO("\n\n\n updateHeadPosition                      angle_raw = %2.3f       std::abs(angle_raw - yaw) = %2.3f", angle_raw, std::abs(angle_raw - yaw) );
+//  ROS_INFO("angle_raw - recent_angle_raw = %2.3f", angle_raw - recent_angle_raw);
   
   if(!is_poi_tracked_ && is_path_completed_){
     
     angle = 0;
     
-  } else if (std::abs(angle_raw - yaw) > 0.1) {
+  } else if (std::abs(recent_angle_raw - yaw) > 0.1) {
     
-    angle = angle_raw;
+    angle = recent_angle_raw;
     if(angle > M_PI/2 - 0.1){
       angle = M_PI/2 - 0.1;
     }else if(angle < -M_PI/2 + 0.1){
       angle = -M_PI/2 + 0.1;
     }
     
+  } else if (!is_poi_tracked_) { // TODO: is this better than just return?
+    
+    angle = recent_angle_raw;
+    if(angle > M_PI/2 - 0.1){
+      angle = M_PI/2 - 0.1;
+    }else if(angle < -M_PI/2 + 0.1){
+      angle = -M_PI/2 + 0.1;
+    }
+  
   } else {
+    
     return;
   }
   
@@ -634,12 +667,12 @@ void Follower::reset(){
 
   if(navigation_stack_ == "rod"){
     ROS_INFO("Waiting for the rod action server to become available");
-    while(ros::ok() && !rod_action_client_.waitForServer(ros::Duration(2.0))){
+    while(ros::ok() && !rod_action_client_.waitForServer(ros::Duration(3.0))){
       ROS_WARN("Still waiting for the rod action server to become available");
     }
   } else if (navigation_stack_ == "move_base"){
     ROS_INFO("Waiting for the move_base action server to become available");
-    while(ros::ok() && !move_base_goal_action_client_.waitForServer(ros::Duration(2.0))){
+    while(ros::ok() && !move_base_goal_action_client_.waitForServer(ros::Duration(3.0))){
       ROS_WARN("Still waiting for the move_base action server to become available");
     }
   }
@@ -649,7 +682,7 @@ void Follower::reset(){
 
 
 void Follower::loop(){
-
+  
   if(stop_navigation_ || e_failure_){
     stopNavigation();
     stop_navigation_ = false;

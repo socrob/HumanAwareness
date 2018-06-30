@@ -7,7 +7,7 @@
   <arg name="launch_follower"               default="true"  />
   <arg name="launch_tracker"                default="true"  />
   <arg name="launch_navigation_stack"       default="true"  />
-  <arg name="launch_darknet_ros_py"         default="true"  />
+  <arg name="launch_darknet_ros_py"         default="false"  />
 
   <arg name="navigation_stack"              default="rod"   />
   <arg name="navigation_type"               default="path_following" />
@@ -18,7 +18,9 @@
   <arg name="target_pose_minimum_distance"  default="0.75" />
   <arg name="path_minimum_distance"         default="0.15" />
   
+  <arg name="success_timeout"               default="100000000.0"   />
   <arg name="poi_lost_timeout"              default="5.0"   />
+  <arg name="poi_stopped_timeout"           default="20.0"   />
   <arg name="poi_tracking_timeout"          default="5.0"   />
 
 
@@ -53,6 +55,7 @@
       <param name="person_pose_minimum_distance"  type="double"   value="$(arg person_pose_minimum_distance)" />
       <param name="target_pose_minimum_distance"  type="double"   value="$(arg target_pose_minimum_distance)" />
       <param name="path_minimum_distance"         type="double"   value="$(arg path_minimum_distance)" />
+      <param name="success_timeout"               type="double"   value="$(arg success_timeout)" />
       <param name="poi_lost_timeout"              type="double"   value="$(arg poi_lost_timeout)" />
       <param name="poi_tracking_timeout"          type="double"   value="$(arg poi_tracking_timeout)" />
 
