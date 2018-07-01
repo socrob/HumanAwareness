@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="namespace" default="people_follower" />
+
+  <arg name="launch_visualisation_nodes"    default="true"  />
+  <arg name="launch_follower"               default="true"  />
+  <arg name="launch_tracker"                default="true"  />
+  <arg name="launch_navigation_stack"       default="true"  />
+  <arg name="launch_darknet_ros_py"         default="true"  />
+
+  <arg name="navigation_stack"              default="rod"   />
+  <arg name="navigation_type"               default="path_following" />
+  <arg name="move_base_simple"              default="false" />
+
+  <arg name="fixed_frame"                   default="/odom" />
+  <arg name="person_pose_minimum_distance"  default="0.9"   />
+  <arg name="target_pose_minimum_distance"  default="0.5"  />
+  <arg name="path_minimum_distance"         default="0.15"  />
+  
+  <arg name="poi_lost_timeout"              default="5.0"   />
+  <arg name="poi_tracking_timeout"          default="5.0"   />
+
+
+  <include file="$(find mbot_2dnav)/ros/launch/2dnav_people_following.launch" if="$(arg launch_navigation_stack)" />
+
+  <include file="$(find darknet_ros_py)/ros/launch/people_following.launch" if="$(arg launch_darknet_ros_py)" >
+    <arg name="detection_topic" value="/$(arg namespace)/detection_result" />
+  </include>
+
+
+  <group ns="$(arg namespace)">
+
+    <remap from="/people_follower/event_in" to="/people_follower/object_2D_to_3D_pose/event_in" />
+
+    <remap from="object_2D_to_3D_pose/poses_out" to="upper_body_detector_poses" />
+
+    <include file="$(find mbot_object_localization)/ros/launch/mbot_people_to_3d.launch" >
+      <remap from="/detection_result" to="/$(arg namespace)/detection_result" />
+    </include>
+
+    <include file="$(find bayes_people_tracker)/launch/people_tracker_people_following.launch" if="$(arg launch_tracker)">
+      <arg name="target_frame" value="$(arg fixed_frame)" />
+    </include>
+
+    <node pkg="pedestrian_detector" type="follower" name="follower" output="screen" respawn="true" if="$(arg launch_follower)" >
+
+      <rosparam file="$(find pedestrian_detector)/config/follower.yaml" command="load"/>
+
+      <param name="fixed_frame"                   type="string"   value="$(arg fixed_frame)" />
+      <param name="default_navigation_stack"      type="string"   value="$(arg navigation_stack)" />
+      <param name="default_navigation_type"       type="string"   value="$(arg navigation_type)" />
+      <param name="person_pose_minimum_distance"  type="double"   value="$(arg person_pose_minimum_distance)" />
+      <param name="target_pose_minimum_distance"  type="double"   value="$(arg target_pose_minimum_distance)" />
+      <param name="path_minimum_distance"         type="double"   value="$(arg path_minimum_distance)" />
+      <param name="poi_lost_timeout"              type="double"   value="$(arg poi_lost_timeout)" />
+      <param name="poi_tracking_timeout"          type="double"   value="$(arg poi_tracking_timeout)" />
+
+      <remap from="twist_topic" to="/cmd_vel_prio_medium"/>
+
+
+      <remap from="/move_base_simple/goal" to="/null/move_base_simple/goal" unless="$(arg move_base_simple)" />
+
+    </node>
+
+    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="hector_trajectory_server" output="screen" if="$(arg launch_visualisation_nodes)" respawn="true" >
+      <param name="target_frame_name" type="string" value="/map" />
+      <param name="source_frame_name" type="string" value="/base_link" />
+      <param name="trajectory_update_rate" type="double" value="10" />
+      <param name="trajectory_publish_rate" type="double" value="10" />
+      <remap from="trajectory" to="robot_trajectory" />
+    </node>
+
+    <node pkg="pedestrian_detector" type="after" name="after_tracker" respawn="true" />
+
+  </group>
+</launch>

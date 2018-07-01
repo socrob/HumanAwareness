@@ -1,0 +1,8 @@
+prefix=/home/enrico/ros_ws/src/HumanAwareness/mbot_scan_map/cmake-build-debug/devel
+
+Name: mbot_scan_map
+Description: Description of mbot_scan_map
+Version: 0.1.0
+Cflags: 
+Libs: -L/home/enrico/ros_ws/src/HumanAwareness/mbot_scan_map/cmake-build-debug/devel/lib 
+Requires: 
