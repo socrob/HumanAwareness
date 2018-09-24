@@ -34,7 +34,7 @@ class Follower
 {
  public:
   Follower(); //constructor
-  ~Follower(); //distructor
+  ~Follower(); //destructor
   
   void reset();
   void loop();

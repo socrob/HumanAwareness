@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>pedestrian_detector</name>
+  <name>people_follower</name>
   <version>0.1.4</version>
-  <description>Pedestrian Detector</description>
+  <description>People Follower</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->

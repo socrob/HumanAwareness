@@ -7,7 +7,7 @@ add_compile_options(-std=c++11)
 file(GLOB common_folder_source src/*.cpp)
 
 cmake_minimum_required(VERSION 2.8.3)
-project(pedestrian_detector)
+project(people_follower)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -49,7 +49,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../binAndDataFiles)
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES pedestrian_detector
+  LIBRARIES ${PROJECT_NAME}
   CATKIN_DEPENDS roscpp std_msgs
 #  DEPENDS system_lib
 )
@@ -81,7 +81,7 @@ add_executable(after src/tracker/after.cpp)
 target_link_libraries(after ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 #add_dependencies(after pedestrian_detector_generate_messages_cpp)
 
-add_executable(follower src/follower/follower.cpp src/follower/RamerDouglasPeucker.cpp)
+add_executable(follower src/follower/follower.cpp)
 target_link_libraries(follower ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 #add_dependencies(follower pedestrian_detector_generate_messages_cpp)
 
