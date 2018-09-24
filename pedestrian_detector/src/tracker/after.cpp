@@ -49,7 +49,7 @@ void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
   tf::Transform transform;
   tf::Quaternion q;
   geometry_msgs::Point p;
-  float vx, vy, at, personvx, personvy;
+  float vx, vy, at, personvx = 0.0, personvy = 0.0;
   
   if(!id){
     id = true;
@@ -69,7 +69,7 @@ void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
         personvy = msg->people[i].velocity.y;
       }else{
       	count++;
-	    }
+      }
 
       if(count==s){
         int j = closerperson(msg->people,s);
