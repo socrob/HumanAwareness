@@ -3,11 +3,11 @@
 
   <arg name="namespace" default="people_follower" />
 
-  <arg name="launch_visualisation_nodes"    default="true"  />
-  <arg name="launch_follower"               default="true"  />
-  <arg name="launch_tracker"                default="true"  />
-  <arg name="launch_navigation_stack"       default="true"  />
-  <arg name="launch_darknet_ros_py"         default="false"  />
+  <arg name="launch_visualisation_nodes"    default="true" />
+  <arg name="launch_follower"               default="true" />
+  <arg name="launch_tracker"                default="true" />
+  <arg name="launch_navigation_stack"       default="true" />
+  <arg name="launch_detector"               default="true" />
 
   <arg name="navigation_stack"              default="rod"   />
   <arg name="navigation_type"               default="path_following" />
@@ -23,31 +23,35 @@
   <arg name="poi_stopped_timeout"           default="20.0"   />
   <arg name="poi_tracking_timeout"          default="5.0"   />
 
-
   <include file="$(find mbot_2dnav)/ros/launch/2dnav_people_following.launch" if="$(arg launch_navigation_stack)" />
 
-  <include file="$(find darknet_ros_py)/ros/launch/people_following.launch" if="$(arg launch_darknet_ros_py)" >
-    <arg name="detection_topic" value="/$(arg namespace)/detection_result" />
+  <!-- Generic Detector -->
+  <include ns="mbot_perception" if="$(arg launch_detector)" file="$(find darknet_ros_py)/ros/launch/darknet_ros_py.launch" >
+    <arg name="config_file" default="$(find darknet_ros_py)/ros/config/default.yaml" />
+    <arg name="threshold" value="0.6"/>
+    <arg name="input_topic" value="/head_camera/rgb/image_rect_color"/>
+    <arg name="debug" value="false"/>
+    <arg name="only_best" value="false"/>
+    <arg name="node_name" value="generic_detector"/>
   </include>
-
 
   <group ns="$(arg namespace)">
 
-    <remap from="/people_follower/event_in" to="/people_follower/object_2D_to_3D_pose/event_in" />
-
-    <remap from="object_2D_to_3D_pose/poses_out" to="upper_body_detector_poses" />
-
-    <include file="$(find mbot_object_localization)/ros/launch/mbot_people_to_3d.launch" >
-      <remap from="/detection_result" to="/$(arg namespace)/detection_result" />
+    <!-- Generic Localizer -->
+    <include if="$(arg launch_detector)" file="$(find mbot_object_localization)/ros/launch/mbot_object_localization.launch" >
+      <arg name="inner_ratio" value="0.25" />
+      <arg name="remove_intersections" value="false"/>
+      <arg name="roi_array_topic" value="/mbot_perception/generic_detector/detections" />
+      <arg name="node_name" value="generic_localizer" />
     </include>
 
     <include file="$(find bayes_people_tracker)/launch/people_tracker_people_following.launch" if="$(arg launch_tracker)">
       <arg name="target_frame" value="$(arg fixed_frame)" />
     </include>
 
-    <node pkg="pedestrian_detector" type="follower" name="follower" output="screen" respawn="true" if="$(arg launch_follower)" >
+    <node pkg="people_follower" type="follower" name="follower" output="screen" respawn="true" if="$(arg launch_follower)" >
 
-      <rosparam file="$(find pedestrian_detector)/config/follower.yaml" command="load"/>
+      <rosparam file="$(find people_follower)/config/follower.yaml" command="load"/>
 
       <param name="fixed_frame"                   type="string"   value="$(arg fixed_frame)" />
       <param name="default_navigation_stack"      type="string"   value="$(arg navigation_stack)" />
@@ -60,8 +64,6 @@
       <param name="poi_tracking_timeout"          type="double"   value="$(arg poi_tracking_timeout)" />
 
       <remap from="twist_topic" to="/cmd_vel_prio_medium"/>
-
-
       <remap from="/move_base_simple/goal" to="/null/move_base_simple/goal" unless="$(arg move_base_simple)" />
 
     </node>
@@ -74,7 +76,7 @@
       <remap from="trajectory" to="robot_trajectory" />
     </node>
 
-    <node pkg="pedestrian_detector" type="after" name="after_tracker" respawn="true" />
+    <node pkg="people_follower" type="after" name="after_tracker" respawn="true" />
 
   </group>
 </launch>
