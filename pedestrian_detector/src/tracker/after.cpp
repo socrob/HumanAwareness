@@ -49,7 +49,7 @@ void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
   tf::Transform transform;
   tf::Quaternion q;
   geometry_msgs::Point p;
-  float vx, vy, at,personvx,personvy;
+  float vx, vy, at, personvx, personvy;
   
   if(!id){
     id = true;
