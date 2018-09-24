@@ -1,3 +1,6 @@
 *~
 *.save
-*.*~
+*.*~.idea/
+cmake-build-debug/
+pedestrian_detector/.idea/
+people_follower/.idea/

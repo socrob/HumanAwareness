@@ -11,8 +11,8 @@ Follower::Follower():
     nh_(ros::NodeHandle()),
     rod_action_client_("/navigation_by_target", true),
     move_base_goal_action_client_("/null_move_base", true),
-    update_trajectory_(false),
-    update_navigation_goal_(false){
+    update_navigation_goal_(false),
+    update_trajectory_(false) {
   
   ros::NodeHandle private_nh = ros::NodeHandle("~");
   
