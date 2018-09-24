@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
-  cv_bridge
+#  cv_bridge
   image_transport
   tf
   tf_conversions
@@ -21,10 +21,11 @@ find_package(catkin REQUIRED COMPONENTS
   interactive_markers
   nav_msgs
   scout_msgs
-  pcl_conversions
-  pcl_ros
-  vizzy_msgs
-  mcr_semantic_robot_localizer
+  people_msgs
+#  pcl_conversions
+#  pcl_ros
+#  vizzy_msgs
+#  mcr_semantic_robot_localizer
 )
 
 find_package(OpenCV REQUIRED)
@@ -32,25 +33,25 @@ find_package(OpenCV REQUIRED)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../binAndDataFiles)
 
-add_message_files(
-  FILES
-  BoundingBox.msg
-  Features.msg
-  DetectionList.msg
-  BBList.msg
-)
-
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  sensor_msgs
-)
+#add_message_files(
+#  FILES
+#  BoundingBox.msg
+#  Features.msg
+#  DetectionList.msg
+#  BBList.msg
+#)
+#
+#generate_messages(
+#  DEPENDENCIES
+#  std_msgs
+#  sensor_msgs
+#)
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES pedestrian_detector
-  CATKIN_DEPENDS cv_bridge image_transport roscpp std_msgs message_runtime
-  DEPENDS system_lib
+  CATKIN_DEPENDS roscpp std_msgs
+#  DEPENDS system_lib
 )
 
 ###########
@@ -72,17 +73,17 @@ source_group("Tracker Header Files" FILES ${tracker_folder_header})
 #target_link_libraries(detector ${catkin_LIBRARIES})
 #add_dependencies(detector pedestrian_detector_generate_messages_cpp)
 
-add_executable(centralp src/tracker/centralp.cpp)
-target_link_libraries(centralp ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
-add_dependencies(centralp pedestrian_detector_generate_messages_cpp)
+#add_executable(centralp src/tracker/centralp.cpp)
+#target_link_libraries(centralp ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
+#add_dependencies(centralp pedestrian_detector_generate_messages_cpp)
 
 add_executable(after src/tracker/after.cpp)
 target_link_libraries(after ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
-add_dependencies(after pedestrian_detector_generate_messages_cpp)
+#add_dependencies(after pedestrian_detector_generate_messages_cpp)
 
 add_executable(follower src/follower/follower.cpp src/follower/RamerDouglasPeucker.cpp)
 target_link_libraries(follower ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
-add_dependencies(follower pedestrian_detector_generate_messages_cpp)
+#add_dependencies(follower pedestrian_detector_generate_messages_cpp)
 
 #add_executable(person src/tracker/person.cpp)
 #target_link_libraries(person ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
