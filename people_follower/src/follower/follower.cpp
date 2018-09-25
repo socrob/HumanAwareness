@@ -150,6 +150,22 @@ void Follower::eventInCallback(const std_msgs::String& msg){
     } else {
       ROS_ERROR("\nALREADY STARTED\n\n");
     }
+  } else if (msg.data == "e_track_poi") {
+
+      navigation_stack_ = "None";
+
+      if (!following_enabled_) {
+
+          ROS_INFO("\nSTART EVENT RECEIVED: Starting tracking person of interest (navigation stack set to None)\n\n");
+
+          createSubscribers();
+          start_stamp_ = ros::Time::now();
+          following_enabled_ = true;
+          initialise_navigation_ = false;
+
+      } else {
+          ROS_ERROR("\nALREADY STARTED\n\n");
+      }
   }
 
   if(msg.data == "e_stop"){
