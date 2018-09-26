@@ -43,7 +43,6 @@
       <arg name="remove_intersections" value="false"/>
       <arg name="roi_array_topic" value="/mbot_perception/generic_detector/detections" />
       <arg name="node_name" value="generic_localizer" />
-      <arg name="filter_classes_enable" value="true" />
       <arg name="filter_classes" value="[&quot;person&quot;]" />
     </include>
 
