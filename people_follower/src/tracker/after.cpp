@@ -12,11 +12,13 @@
 
 bool id = false;
 std::string name;
-geometry_msgs::PointStamped personposition;
+geometry_msgs::PointStamped poi_position_;
+ros::Subscriber tracked_people_subscriber_;
+bool subscribed_to_input_topics_ = false;
 
-int closerperson(std::vector<people_msgs::Person> m,int s){
+int closestPerson(std::vector<people_msgs::Person> m, int s){
 
-  int closer = 0;
+  int closest = 0;
   geometry_msgs::PointStamped pointin;
   float dcloser = 0;
 
@@ -31,20 +33,19 @@ int closerperson(std::vector<people_msgs::Person> m,int s){
       dcloser = d;
     }else{
       if (d < dcloser){
-        closer = i;
+        closest = i;
         dcloser = d;
       }
     }
-
   }
 
-  return closer;
+  return closest;
 
 }
 
-void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
+void trackedPeopleCallback(const people_msgs::People::ConstPtr &msg){
   int s = msg->people.size();
-  geometry_msgs::PointStamped personpoint;
+  geometry_msgs::PointStamped person_point;
   static tf::TransformBroadcaster br;
   tf::Transform transform;
   tf::Quaternion q;
@@ -53,18 +54,18 @@ void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
   
   if(!id){
     id = true;
-    int i = closerperson(msg->people,s);
+    int i = closestPerson(msg->people, s);
     name = msg->people[i].name;
-    personpoint.point = msg->people[i].position;
-    personpoint.header = msg->header;
+    person_point.point = msg->people[i].position;
+    person_point.header = msg->header;
     personvx = msg->people[i].velocity.x;
     personvy = msg->people[i].velocity.y;
   }else{
     int count = 0;
     for(int i = 0; i < s; i++){
       if(name == msg->people[i].name){
-        personpoint.point = msg->people[i].position;
-        personpoint.header = msg->header;
+        person_point.point = msg->people[i].position;
+        person_point.header = msg->header;
         personvx = msg->people[i].velocity.x;
         personvy = msg->people[i].velocity.y;
       }else{
@@ -72,21 +73,21 @@ void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
       }
 
       if(count==s){
-        int j = closerperson(msg->people,s);
+        int j = closestPerson(msg->people, s);
         name = msg->people[j].name;
-        personpoint.point = msg->people[j].position;
-        personpoint.header = msg->header;
+        person_point.point = msg->people[j].position;
+        person_point.header = msg->header;
         personvx = msg->people[i].velocity.x;
         personvy = msg->people[i].velocity.y;
       }
     }
   }
   
-  personposition=personpoint;
+  poi_position_=person_point;
   std::cout << "tf pub" << std::endl;
 
-  p.x = personpoint.point.x;
-  p.y = personpoint.point.y;
+  p.x = person_point.point.x;
+  p.y = person_point.point.y;
   vx = personvx;
   vy = personvy;
 
@@ -99,21 +100,42 @@ void peopletrackCallback(const people_msgs::People::ConstPtr& msg){
 //end
 }
 
+void createSubscribers(){
+  ros::NodeHandle n;
+  tracked_people_subscriber_ = n.subscribe("people_tracker/people", 1, trackedPeopleCallback);
+
+}
+
+void destroySubscribers(){
+  tracked_people_subscriber_.shutdown();
+}
+
+
 int main(int argc,char* argv[]){
   ros::init(argc, argv, "after");
   
   ros::NodeHandle n;
-  //listener = new (tf::TransformListener);
+  ros::Rate loop(30);
 
-  ros::Subscriber trackpeople_sub = n.subscribe("people_tracker/people", 1, peopletrackCallback);
-  ros::Publisher personpub = n.advertise<geometry_msgs::PointStamped>("person_position",10);
-  
-  ros::Rate loop(20);
+  ros::Publisher personpub = n.advertise<geometry_msgs::PointStamped>("person_position", 10);
+
   while(ros::ok()){
-    if(personposition.header.frame_id != " "){
-      personpub.publish(personposition);
-      personposition.header.frame_id =' ';
+
+    if(personpub.getNumSubscribers() > 0 && !subscribed_to_input_topics_){
+      createSubscribers();
+      subscribed_to_input_topics_ = true;
     }
+
+    if(personpub.getNumSubscribers() == 0 && subscribed_to_input_topics_){
+      destroySubscribers();
+      subscribed_to_input_topics_ = false;
+    }
+
+    if(poi_position_.header.frame_id != " "){
+      personpub.publish(poi_position_);
+      poi_position_.header.frame_id =' ';
+    }
+
     ros::spinOnce();
     loop.sleep();
   }

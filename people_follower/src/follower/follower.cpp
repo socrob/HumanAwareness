@@ -801,11 +801,11 @@ void Follower::loop(){
       event_out_publisher_.publish(e);
     }
     
-//    // When is_poi_tracked_ changes
-//    if(prev_is_poi_tracked_ != is_poi_tracked_) {
-//      e.data = is_poi_tracked_ ? "e_tracking_acquired" : "e_tracking_lost";
-//      event_out_publisher_.publish(e);
-//    }
+    // When is_poi_tracked_ changes
+    if(prev_is_poi_tracked_ != is_poi_tracked_) {
+      e.data = is_poi_tracked_ ? "e_tracking_acquired" : "e_tracking_lost";
+      event_out_publisher_.publish(e);
+    }
     
     if(
       (!(e_success_ || e_failure_) && is_poi_in_starting_position_)||
