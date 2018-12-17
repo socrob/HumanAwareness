@@ -8,6 +8,7 @@
   <arg name="launch_tracker"                default="true" />
   <arg name="launch_navigation_stack"       default="true" />
   <arg name="launch_detector"               default="true" />
+  <arg name="launch_localizer"              default="true" />
 
   <arg name="navigation_stack"              default="rod"   />
   <arg name="navigation_type"               default="path_following" />
@@ -38,12 +39,12 @@
   <group ns="$(arg namespace)">
 
     <!-- Generic Localizer -->
-    <include if="$(arg launch_detector)" file="$(find mbot_object_localization)/ros/launch/mbot_object_localization.launch" >
+    <include if="$(arg launch_localizer)" file="$(find mbot_object_localization)/ros/launch/mbot_object_localization.launch" >
       <arg name="inner_ratio" value="0.25" />
       <arg name="remove_intersections" value="false"/>
       <arg name="roi_array_topic" value="/mbot_perception/generic_detector/detections" />
       <arg name="node_name" value="generic_localizer" />
-      <arg name="filter_classes" value="[&quot;person&quot;]" />
+      <arg name="filter_classes" value="[person]" />
     </include>
 
     <include file="$(find bayes_people_tracker)/launch/people_tracker_people_following.launch" if="$(arg launch_tracker)">
