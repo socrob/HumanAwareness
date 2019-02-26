@@ -3,21 +3,20 @@
 
   <arg name="namespace" default="people_follower" />
 
-  <arg name="launch_visualisation_nodes"    default="true" />
   <arg name="launch_follower"               default="true" />
   <arg name="launch_tracker"                default="true" />
   <arg name="launch_navigation_stack"       default="true" />
   <arg name="launch_detector"               default="true" />
   <arg name="launch_localizer"              default="true" />
 
-  <arg name="navigation_stack"              default="rod"   />
+  <arg name="navigation_stack"              default="move_base_simple"   />
   <arg name="navigation_type"               default="path_following" />
-  <arg name="move_base_simple"              default="false" />
+  <arg name="move_base_simple"              default="true" />
 
-  <arg name="fixed_frame"                   default="/odom" />
-  <arg name="person_pose_minimum_distance"  default="0.75" />
-  <arg name="target_pose_minimum_distance"  default="0.75" />
-  <arg name="path_minimum_distance"         default="0.15" />
+  <arg name="fixed_frame"                   default="/map" />
+  <arg name="person_pose_minimum_distance"  default="1.15" />
+  <arg name="target_pose_minimum_distance"  default="1.15" />
+  <arg name="path_minimum_distance"         default="0.5" />
   
   <arg name="success_timeout"               default="100000000.0"   />
   <arg name="poi_lost_timeout"              default="5.0"   />
@@ -68,14 +67,6 @@
       <remap from="twist_topic" to="/cmd_vel_prio_medium"/>
       <remap from="/move_base_simple/goal" to="/null/move_base_simple/goal" unless="$(arg move_base_simple)" />
 
-    </node>
-
-    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="hector_trajectory_server" output="screen" if="$(arg launch_visualisation_nodes)" respawn="true" >
-      <param name="target_frame_name" type="string" value="/map" />
-      <param name="source_frame_name" type="string" value="/base_link" />
-      <param name="trajectory_update_rate" type="double" value="10" />
-      <param name="trajectory_publish_rate" type="double" value="10" />
-      <remap from="trajectory" to="robot_trajectory" />
     </node>
 
     <node pkg="people_follower" type="after" name="after_tracker" respawn="true" />

@@ -505,6 +505,7 @@ void Follower::updateNavigationGoal(){
     if (navigation_stack_ == "move_base_simple") {
       
       navigation_goal_publisher_.publish(goal);
+      ROS_INFO("UPDATE move_base simple goal");
     
     } else if(navigation_stack_ == "move_base"){
       
@@ -526,16 +527,47 @@ void Follower::updateNavigationGoal(){
   
   }else{
     // Skip the next residual pose if it is close enough, unless it is the last
-    if(target_pose_distance < target_pose_minimum_distance_){
-      if(current_pose_pointer_ < poi_trajectory_.poses.size()-1) current_pose_pointer_++;
+    if(target_pose_distance < target_pose_minimum_distance_ && (current_pose_pointer_ < poi_trajectory_.poses.size()-1)){
+
+      current_pose_pointer_++;
+      geometry_msgs::PoseStamped updated_target_pose = poi_trajectory_.poses[current_pose_pointer_];;
+      ROS_INFO("new trajectory navigation target: %lu\\%lu\t", current_pose_pointer_, poi_trajectory_.poses.size());
+
+      geometry_msgs::PoseStamped goal;
+      goal.header = poi_position_.header;
+      goal.pose = updated_target_pose.pose;
+
+      if (navigation_stack_ == "move_base_simple") {
+
+          navigation_goal_publisher_.publish(goal);
+          ROS_INFO("UPDATE move_base simple goal");
+
+      } else if(navigation_stack_ == "move_base"){
+
+          move_base_msgs::MoveBaseGoal move_base_goal;
+          move_base_goal.target_pose = goal;
+
+          ROS_INFO("Sending move_base_goal");
+          move_base_goal_action_client_.sendGoal(move_base_goal);
+
+          if(move_base_goal_action_client_.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
+              ROS_INFO("SimpleClientGoalState::SUCCEEDED");
+          } else {
+              ROS_WARN("SimpleClientGoalState FAILED");
+          }
+
+      }
+
+
     }
   }
-  
+
+  // TODO set is_path_completed_ to a distance from the poi to respect personal space
   // The path following is completed when the last pose is set as target and is close enough to be considered as reached
-  bool perv_is_path_completed_ = is_path_completed_;
+  bool prev_is_path_completed_ = is_path_completed_;
   is_path_completed_ = (current_pose_pointer_ == poi_trajectory_.poses.size()-1) && (target_pose_distance < target_pose_minimum_distance_);
   
-  if(!perv_is_path_completed_ && is_path_completed_){
+  if(!prev_is_path_completed_ && is_path_completed_){
     path_completed_stamp_ = ros::Time::now();
   }
   
