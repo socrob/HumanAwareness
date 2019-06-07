@@ -84,7 +84,6 @@ void trackedPeopleCallback(const people_msgs::People::ConstPtr &msg){
   }
   
   poi_position_=person_point;
-  std::cout << "tf pub" << std::endl;
 
   p.x = person_point.point.x;
   p.y = person_point.point.y;
@@ -102,12 +101,13 @@ void trackedPeopleCallback(const people_msgs::People::ConstPtr &msg){
 
 void createSubscribers(){
   ros::NodeHandle n;
-  tracked_people_subscriber_ = n.subscribe("people_tracker/people", 1, trackedPeopleCallback);
-
+  tracked_people_subscriber_ = n.subscribe("bayes_people_tracker/people", 1, trackedPeopleCallback);
+  ROS_INFO("Creating subscribers");
 }
 
 void destroySubscribers(){
   tracked_people_subscriber_.shutdown();
+  ROS_INFO("Destroying subscribers");
 }
 
 

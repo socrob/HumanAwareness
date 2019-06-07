@@ -69,7 +69,7 @@
 
     </node>
 
-    <node pkg="people_follower" type="after" name="after_tracker" respawn="true" />
+    <node pkg="people_follower" type="after" name="after_tracker" respawn="true" output="screen" />
 
   </group>
 </launch>
