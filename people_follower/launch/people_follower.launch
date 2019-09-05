@@ -9,7 +9,7 @@
   <arg name="launch_detector"               default="true" />
   <arg name="launch_localizer"              default="true" />
 
-  <arg name="navigation_stack"              default="move_base_simple"   />
+  <arg name="navigation_stack"              default="move_base_simple"   />  <!-- possible values: None, rod, move_base, move_base_simple -->
   <arg name="navigation_type"               default="path_following" />
   <arg name="move_base_simple"              default="true" />
 
@@ -69,7 +69,7 @@
 
     </node>
 
-    <node pkg="people_follower" type="after" name="after_tracker" respawn="true" output="screen" />
+    <node pkg="people_follower" type="after" name="after_tracker" respawn="true" output="screen" if="$(arg launch_follower)" />
 
   </group>
 </launch>
